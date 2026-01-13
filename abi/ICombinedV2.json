@@ -8616,6 +8616,1680 @@
   },
   {
     "type": "function",
+    "name": "exposePrivateIntentPublicBalanceBoundedBundle",
+    "inputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PrivateIntentPublicBalanceBoundedBundle",
+        "components": [
+          {
+            "name": "auth",
+            "type": "tuple",
+            "internalType": "struct PrivateIntentAuthBundle",
+            "components": [
+              {
+                "name": "merkleDepth",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "statement",
+                "type": "tuple",
+                "internalType": "struct IntentOnlyValidityStatement",
+                "components": [
+                  {
+                    "name": "intentOwner",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "merkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newAmountShare",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "recoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "validityProof",
+                "type": "tuple",
+                "internalType": "struct PlonkProof",
+                "components": [
+                  {
+                    "name": "wireComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "zComm",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "quotientComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZeta",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZetaOmega",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wireEvals",
+                    "type": "uint256[5]",
+                    "internalType": "BN254.ScalarField[5]"
+                  },
+                  {
+                    "name": "sigmaEvals",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "zBar",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "settlementStatement",
+            "type": "tuple",
+            "internalType": "struct IntentOnlyBoundedSettlementStatement",
+            "components": [
+              {
+                "name": "boundedMatchResult",
+                "type": "tuple",
+                "internalType": "struct BoundedMatchResult",
+                "components": [
+                  {
+                    "name": "internalPartyInputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "internalPartyOutputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "price",
+                    "type": "tuple",
+                    "internalType": "struct FixedPoint",
+                    "components": [
+                      {
+                        "name": "repr",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "minInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "maxInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "blockDeadline",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "externalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "internalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFeeAddress",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "settlementProof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PrivateIntentPublicBalanceBoundedBundle",
+        "components": [
+          {
+            "name": "auth",
+            "type": "tuple",
+            "internalType": "struct PrivateIntentAuthBundle",
+            "components": [
+              {
+                "name": "merkleDepth",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "statement",
+                "type": "tuple",
+                "internalType": "struct IntentOnlyValidityStatement",
+                "components": [
+                  {
+                    "name": "intentOwner",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "merkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newAmountShare",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "recoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "validityProof",
+                "type": "tuple",
+                "internalType": "struct PlonkProof",
+                "components": [
+                  {
+                    "name": "wireComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "zComm",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "quotientComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZeta",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZetaOmega",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wireEvals",
+                    "type": "uint256[5]",
+                    "internalType": "BN254.ScalarField[5]"
+                  },
+                  {
+                    "name": "sigmaEvals",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "zBar",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "settlementStatement",
+            "type": "tuple",
+            "internalType": "struct IntentOnlyBoundedSettlementStatement",
+            "components": [
+              {
+                "name": "boundedMatchResult",
+                "type": "tuple",
+                "internalType": "struct BoundedMatchResult",
+                "components": [
+                  {
+                    "name": "internalPartyInputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "internalPartyOutputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "price",
+                    "type": "tuple",
+                    "internalType": "struct FixedPoint",
+                    "components": [
+                      {
+                        "name": "repr",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "minInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "maxInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "blockDeadline",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "externalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "internalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFeeAddress",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "settlementProof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "exposePrivateIntentPublicBalanceBoundedFirstFillBundle",
+    "inputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PrivateIntentPublicBalanceBoundedFirstFillBundle",
+        "components": [
+          {
+            "name": "auth",
+            "type": "tuple",
+            "internalType": "struct PrivateIntentAuthBundleFirstFill",
+            "components": [
+              {
+                "name": "intentSignature",
+                "type": "tuple",
+                "internalType": "struct SignatureWithNonce",
+                "components": [
+                  {
+                    "name": "nonce",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "signature",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "merkleDepth",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "statement",
+                "type": "tuple",
+                "internalType": "struct IntentOnlyValidityStatementFirstFill",
+                "components": [
+                  {
+                    "name": "intentOwner",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "intentPrivateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "recoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentPublicShare",
+                    "type": "tuple",
+                    "internalType": "struct IntentPublicShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "amountIn",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "validityProof",
+                "type": "tuple",
+                "internalType": "struct PlonkProof",
+                "components": [
+                  {
+                    "name": "wireComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "zComm",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "quotientComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZeta",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZetaOmega",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wireEvals",
+                    "type": "uint256[5]",
+                    "internalType": "BN254.ScalarField[5]"
+                  },
+                  {
+                    "name": "sigmaEvals",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "zBar",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "settlementStatement",
+            "type": "tuple",
+            "internalType": "struct IntentOnlyBoundedSettlementStatement",
+            "components": [
+              {
+                "name": "boundedMatchResult",
+                "type": "tuple",
+                "internalType": "struct BoundedMatchResult",
+                "components": [
+                  {
+                    "name": "internalPartyInputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "internalPartyOutputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "price",
+                    "type": "tuple",
+                    "internalType": "struct FixedPoint",
+                    "components": [
+                      {
+                        "name": "repr",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "minInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "maxInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "blockDeadline",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "externalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "internalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFeeAddress",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "settlementProof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PrivateIntentPublicBalanceBoundedFirstFillBundle",
+        "components": [
+          {
+            "name": "auth",
+            "type": "tuple",
+            "internalType": "struct PrivateIntentAuthBundleFirstFill",
+            "components": [
+              {
+                "name": "intentSignature",
+                "type": "tuple",
+                "internalType": "struct SignatureWithNonce",
+                "components": [
+                  {
+                    "name": "nonce",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "signature",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "merkleDepth",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "statement",
+                "type": "tuple",
+                "internalType": "struct IntentOnlyValidityStatementFirstFill",
+                "components": [
+                  {
+                    "name": "intentOwner",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "intentPrivateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "recoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentPublicShare",
+                    "type": "tuple",
+                    "internalType": "struct IntentPublicShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "amountIn",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "validityProof",
+                "type": "tuple",
+                "internalType": "struct PlonkProof",
+                "components": [
+                  {
+                    "name": "wireComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "zComm",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "quotientComms",
+                    "type": "tuple[5]",
+                    "internalType": "struct BN254.G1Point[5]",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZeta",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wZetaOmega",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wireEvals",
+                    "type": "uint256[5]",
+                    "internalType": "BN254.ScalarField[5]"
+                  },
+                  {
+                    "name": "sigmaEvals",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "zBar",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "settlementStatement",
+            "type": "tuple",
+            "internalType": "struct IntentOnlyBoundedSettlementStatement",
+            "components": [
+              {
+                "name": "boundedMatchResult",
+                "type": "tuple",
+                "internalType": "struct BoundedMatchResult",
+                "components": [
+                  {
+                    "name": "internalPartyInputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "internalPartyOutputToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "price",
+                    "type": "tuple",
+                    "internalType": "struct FixedPoint",
+                    "components": [
+                      {
+                        "name": "repr",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "minInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "maxInternalPartyAmountIn",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "blockDeadline",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "externalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "internalRelayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFeeAddress",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "settlementProof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "exposePrivateIntentPublicBalanceBundle",
     "inputs": [
       {
