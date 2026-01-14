@@ -114,6 +114,28 @@ impl SettlementBundle {
         }
     }
 
+    /// Build a private intent, public balance settlement bundle for a bounded subsequent fill
+    pub fn private_intent_public_balance_bounded(
+        auth: PrivateIntentAuthBundle,
+        settlement_statement: IntentOnlyBoundedSettlementStatement,
+        settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = PrivateIntentPublicBalanceBoundedBundle {
+            auth,
+            settlementStatement: settlement_statement,
+            settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: false,
+            bundleType: NATIVE_SETTLED_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
+
     /// Build a private intent, public balance settlement bundle for a subsequent fill
     pub fn private_intent_public_balance(
         auth: PrivateIntentAuthBundle,
@@ -243,6 +265,30 @@ impl SettlementBundle {
 
         Self {
             isFirstFill: true,
+            bundleType: NATIVE_SETTLED_RENEGADE_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
+
+    /// Build a renegade settled private intent bounded subsequent fill bundle
+    pub fn renegade_settled_private_intent_bounded(
+        auth: RenegadeSettledIntentAuthBundle,
+        output_balance_bundle: OutputBalanceBundle,
+        settlement_statement: IntentAndBalanceBoundedSettlementStatement,
+        settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = RenegadeSettledIntentBoundedBundle {
+            auth,
+            outputBalanceBundle: output_balance_bundle,
+            settlementStatement: settlement_statement,
+            settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: false,
             bundleType: NATIVE_SETTLED_RENEGADE_PRIVATE_INTENT_BUNDLE_TYPE,
             data: data.into(),
         }

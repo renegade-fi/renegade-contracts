@@ -5,12 +5,13 @@ use crate::{
     tests::settlement::{
         external_match::{compute_fee_take, setup_external_match},
         private_intent_public_balance::{
-            build_auth_bundle_first_fill, fund_parties, generate_first_fill_validity_proof,
-            generate_linking_proof,
+            build_auth_bundle_first_fill, build_auth_bundle_subsequent_fill, fund_parties,
+            generate_first_fill_validity_proof, generate_linking_proof,
+            generate_subsequent_fill_validity_proof,
         },
         settlement_relayer_fee,
     },
-    util::transactions::wait_for_tx_success,
+    util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
 };
 use alloy::{primitives::U256, signers::local::PrivateKeySigner};
 use eyre::Result;
@@ -27,9 +28,12 @@ use renegade_circuits::{
         self, IntentOnlyBoundedSettlementCircuit, IntentOnlyBoundedSettlementStatement,
     },
 };
+use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_darkpool_types::{
-    bounded_match_result::BoundedMatchResult, intent::Intent,
+    bounded_match_result::BoundedMatchResult,
+    intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
+    state_wrapper::StateWrapper,
 };
 use test_helpers::{assert_eq_result, integration_test_async};
 
@@ -42,21 +46,19 @@ async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) 
     // Fund the parties, party0 (internal party) sells the base; party1 (external party) sells the quote
     fund_parties(&args).await?;
 
-    // Build the intent and match result (no private balance constraint, use max amount)
-    let (intent, bounded_match_result) =
-        create_intent_and_bounded_match_result(&args, BOUNDED_MAX_AMT)?;
+    let (intent, bounded_match_result, first_fill_balance) =
+        create_intent_and_bounded_match_result(&args)?;
 
     // --- First Fill --- //
 
     // Build match result bundle
     let bounded_match_result_bundle = build_match_result_bundle(&bounded_match_result, &args)?;
-
-    // Build obligations
-    let (external_party_amt_in, internal_obligation, external_obligation) =
-        create_obligations(&bounded_match_result_bundle);
+    let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result_bundle);
+    let (internal_obligation, external_obligation) =
+        create_obligations(&bounded_match_result_bundle, external_party_amt_in);
 
     // Build settlement bundle
-    let settlement_bundle0 =
+    let (mut state_intent, settlement_bundle0) =
         build_settlement_bundle_first_fill(&args.party0_signer(), &intent, &bounded_match_result)?;
 
     // Settle the first fill
@@ -73,7 +75,7 @@ async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) 
         bounded_match_result_bundle,
         settlement_bundle0,
     );
-    let _tx_receipt = wait_for_tx_success(tx).await?;
+    let tx_receipt = wait_for_tx_success(tx).await?;
 
     let internal_party_base_after = args.base_balance(args.party0_addr()).await?;
     let external_party_base_after = args.base_balance(external_party).await?;
@@ -126,12 +128,14 @@ integration_test_async!(test_bounded_settlement__native_settled_private_intent);
 /// the circuit's capitalization constraint.
 ///
 /// Party 0 (internal party) sells the base; Party 1 (external party) sells the quote
+///
+/// Returns the intent, bounded match result, and balance amount used
 pub(crate) fn create_intent_and_bounded_match_result(
     args: &TestArgs,
-    balance_amount: u128,
-) -> Result<(Intent, BoundedMatchResult)> {
+) -> Result<(Intent, BoundedMatchResult, u128)> {
     let mut rng = thread_rng();
-    // Intent amount must be >= balance_amount to allow meaningful bounded match results
+    // Generate balance first, then intent amount >= balance for meaningful bounded results
+    let balance_amount = rng.gen_range(1..BOUNDED_MAX_AMT);
     let amount_in = rng.gen_range(balance_amount..=BOUNDED_MAX_AMT);
     let min_price = random_price();
     let internal_party_intent = Intent {
@@ -145,27 +149,34 @@ pub(crate) fn create_intent_and_bounded_match_result(
     // Use create_bounded_match_result_with_balance to ensure max <= balance_amount
     let bounded_match_result =
         create_bounded_match_result_with_balance(&internal_party_intent, balance_amount);
-    Ok((internal_party_intent, bounded_match_result))
+    Ok((internal_party_intent, bounded_match_result, balance_amount))
 }
 
 // --- Obligations --- //
 
-/// Create random obligations for an external match
+/// Pick a random external party amount within the valid bounds
 ///
-/// Picks a random external amount and builds both obligations, mimicking contract's buildObligations
-pub(crate) fn create_obligations(
-    match_bundle: &BoundedMatchResultBundle,
-) -> (U256, SettlementObligation, SettlementObligation) {
+/// This is called once upfront to determine the trade size, then passed to
+/// `create_obligations` to build the actual obligations.
+pub(crate) fn pick_external_party_amt_in(match_bundle: &BoundedMatchResultBundle) -> U256 {
     let mut rng = thread_rng();
     let price_repr: U256 = match_bundle.permit.matchResult.price.repr;
     let min_internal: U256 = match_bundle.permit.matchResult.minInternalPartyAmountIn;
     let max_internal: U256 = match_bundle.permit.matchResult.maxInternalPartyAmountIn;
 
-    // Pick internal in valid range, derive external via ceil division
+    // Pick internal amount in valid range, derive external via ceil division
     let picked_internal =
         U256::from(rng.gen_range(u256_to_u128(min_internal)..=u256_to_u128(max_internal)));
     let shift = U256::from(1u128) << 63u32;
-    let external_party_amt_in = (picked_internal * price_repr + shift - U256::from(1u8)) / shift;
+    (picked_internal * price_repr + shift - U256::from(1u8)) / shift
+}
+
+/// Create obligations for an external match with a specified external amount
+pub(crate) fn create_obligations(
+    match_bundle: &BoundedMatchResultBundle,
+    external_party_amt_in: U256,
+) -> (SettlementObligation, SettlementObligation) {
+    let price_repr: U256 = match_bundle.permit.matchResult.price.repr;
 
     // Contract formula: internal_amt_in = (external_amt_in << 63) / price_repr
     let external_party_amt_out = (external_party_amt_in << 63u32) / price_repr;
@@ -185,11 +196,7 @@ pub(crate) fn create_obligations(
         amount_out: external_obligation.amount_in,
     };
 
-    (
-        external_party_amt_in,
-        internal_obligation,
-        external_obligation,
-    )
+    (internal_obligation, external_obligation)
 }
 
 // --- Prover --- //
@@ -229,8 +236,8 @@ fn build_settlement_bundle_first_fill(
     owner: &PrivateKeySigner,
     intent: &Intent,
     bounded_match_result: &BoundedMatchResult,
-) -> Result<SettlementBundle> {
-    let (commitment, _state_intent, validity_statement, validity_proof, validity_link_hint) =
+) -> Result<(DarkpoolStateIntent, SettlementBundle)> {
+    let (commitment, state_intent, validity_statement, validity_proof, validity_link_hint) =
         generate_first_fill_validity_proof(intent)?;
     let (settlement_statement, settlement_proof, settlement_link_hint) =
         generate_settlement_proof(intent, bounded_match_result)?;
@@ -244,5 +251,26 @@ fn build_settlement_bundle_first_fill(
         settlement_proof.into(),
         linking_proof.into(),
     );
-    Ok(settlement_bundle)
+    Ok((state_intent, settlement_bundle))
+}
+
+/// Build a settlement bundle for a subsequent fill
+fn build_settlement_bundle_subsequent_fill(
+    state_intent: &StateWrapper<Intent>,
+    merkle_opening: &MerkleAuthenticationPath,
+    bounded_match_result: &BoundedMatchResult,
+) -> Result<SettlementBundle> {
+    let (validity_statement, validity_proof, validity_link_hint) =
+        generate_subsequent_fill_validity_proof(state_intent, merkle_opening)?;
+    let (settlement_statement, settlement_proof, settlement_link_hint) =
+        generate_settlement_proof(&state_intent.inner, bounded_match_result)?;
+    let linking_proof = generate_linking_proof(&validity_link_hint, &settlement_link_hint)?;
+
+    let auth_bundle = build_auth_bundle_subsequent_fill(&validity_statement, &validity_proof)?;
+    Ok(SettlementBundle::private_intent_public_balance_bounded(
+        auth_bundle,
+        settlement_statement.into(),
+        settlement_proof.into(),
+        linking_proof.into(),
+    ))
 }
