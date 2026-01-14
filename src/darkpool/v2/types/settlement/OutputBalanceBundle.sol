@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.24;
 
-import { PlonkProof, LinkingProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 import {
     OutputBalanceValidityStatement,
     NewOutputBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
-import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
-import { BN254 } from "solidity-bn254/BN254.sol";
 
 // ------------------------
 // | Output Balance Types |

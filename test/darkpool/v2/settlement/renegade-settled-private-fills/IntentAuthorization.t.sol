@@ -4,19 +4,10 @@ pragma solidity ^0.8.24;
 /* solhint-disable func-name-mixedcase */
 
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import {
-    RenegadeSettledPrivateFirstFillBundle,
-    RenegadeSettledPrivateFillLib
-} from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import {
-    SignatureWithNonce,
-    RenegadeSettledIntentAuthBundleFirstFill
-} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
-import { RenegadeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/RenegadeSettledPrivateIntent.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { RenegadeSettledPrivateFillTestUtils } from "./Utils.sol";

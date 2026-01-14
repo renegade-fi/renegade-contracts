@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { FeeRate, FeeRateLib, FeeTake } from "darkpoolv2-types/Fee.sol";

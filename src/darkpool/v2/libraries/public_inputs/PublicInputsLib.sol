@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { BalanceShareLib } from "darkpoolv2-types/Balance.sol";
 import { ValidDepositStatement, ValidBalanceCreateStatement, ValidWithdrawalStatement } from "./Transfers.sol";
 import {

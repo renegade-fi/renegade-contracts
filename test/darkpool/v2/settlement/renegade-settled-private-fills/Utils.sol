@@ -16,7 +16,6 @@ import {
     PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
-    SignatureWithNonce,
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -29,7 +28,6 @@ import {
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { PostMatchBalanceShare, PreMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";

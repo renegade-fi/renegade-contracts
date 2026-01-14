@@ -11,7 +11,7 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { FeeTake } from "darkpoolv2-types/Fee.sol";
 
 import { CrossBundleTypesTestUtils } from "./Utils.sol";
-import { ExpectedDifferences, SettlementTestUtils } from "../SettlementTestUtils.sol";
+import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 /// @title Cross Bundle Tests
 /// @author Renegade Eng
