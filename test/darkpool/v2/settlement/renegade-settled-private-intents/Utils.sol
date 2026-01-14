@@ -30,7 +30,6 @@ import {
 import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
@@ -50,7 +49,7 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
         context = SettlementContextLib.newContext(
             0, // numDeposits
             2, // numWithdrawals
-            2, // verificationCapacity
+            3, // verificationCapacity
             2 // proofLinkingCapacity
         );
     }

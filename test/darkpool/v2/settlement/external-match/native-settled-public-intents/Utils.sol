@@ -24,7 +24,6 @@ import {
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
-import { BalanceSnapshots, ExpectedDifferences } from "../../SettlementTestUtils.sol";
 import { ExternalMatchTestUtils } from "../Utils.sol";
 
 contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {

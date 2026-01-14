@@ -14,7 +14,6 @@ import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext
 import { PublicIntentSettlementTestUtils } from "../native-settled-public-intents/Utils.sol";
 import { PrivateIntentSettlementTestUtils } from "../native-settled-private-intents/Utils.sol";
 import { RenegadeSettledPrivateIntentTestUtils } from "../renegade-settled-private-intents/Utils.sol";
-import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 
 contract CrossBundleTypesTestUtils is
     PublicIntentSettlementTestUtils,

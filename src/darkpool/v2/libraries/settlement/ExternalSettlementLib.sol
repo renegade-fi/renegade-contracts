@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
-import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
-import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";

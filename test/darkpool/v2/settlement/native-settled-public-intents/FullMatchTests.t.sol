@@ -11,7 +11,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeTake } from "darkpoolv2-types/Fee.sol";
 import { PublicIntentSettlementTestUtils } from "./Utils.sol";
-import { ExpectedDifferences, SettlementTestUtils } from "../SettlementTestUtils.sol";
+import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is PublicIntentSettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;

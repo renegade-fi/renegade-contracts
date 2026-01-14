@@ -13,7 +13,6 @@ import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
 import { BalanceSnapshots, ExpectedDifferences } from "../../SettlementTestUtils.sol";
 import { RenegadeSettledBoundedPrivateIntentTestUtils } from "./Utils.sol";
-import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 
 contract FullMatchTests is RenegadeSettledBoundedPrivateIntentTestUtils {
     using FixedPointLib for FixedPoint;

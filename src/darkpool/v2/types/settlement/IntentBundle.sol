@@ -2,7 +2,6 @@
 // solhint-disable one-contract-per-file
 pragma solidity ^0.8.24;
 
-import { BN254 } from "solidity-bn254/BN254.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import {

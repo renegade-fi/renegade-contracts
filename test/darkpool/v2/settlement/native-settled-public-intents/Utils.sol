@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import {
     SettlementBundle,
     SettlementBundleType,
