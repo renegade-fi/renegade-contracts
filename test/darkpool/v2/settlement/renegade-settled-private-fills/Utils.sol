@@ -64,10 +64,7 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
     /// @dev Create a dummy intent and balance validity statement (first fill)
     function createSampleStatementFirstFill() internal returns (IntentAndBalanceValidityStatementFirstFill memory) {
         IntentPreMatchShare memory intentPublicShare = IntentPreMatchShare({
-            inToken: randomScalar(),
-            outToken: randomScalar(),
-            owner: randomScalar(),
-            minPrice: randomScalar()
+            inToken: randomScalar(), outToken: randomScalar(), owner: randomScalar(), minPrice: randomScalar()
         });
 
         BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
@@ -191,17 +188,13 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
         // Create auth bundle
         RenegadeSettledIntentAuthBundleFirstFill memory auth = RenegadeSettledIntentAuthBundleFirstFill({
-            merkleDepth: merkleDepth,
-            statement: validityStatement,
-            validityProof: createDummyProof()
+            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
         });
 
         // Create output balance bundle
         OutputBalanceBundle memory outputBalanceBundle = createOutputBalanceBundle(merkleDepth);
         RenegadeSettledPrivateFirstFillBundle memory bundleData = RenegadeSettledPrivateFirstFillBundle({
-            auth: auth,
-            outputBalanceBundle: outputBalanceBundle,
-            authSettlementLinkingProof: createDummyLinkingProof()
+            auth: auth, outputBalanceBundle: outputBalanceBundle, authSettlementLinkingProof: createDummyLinkingProof()
         });
 
         // Encode the bundle
@@ -222,17 +215,13 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
         // Create auth bundle (no signature needed for subsequent fills)
         RenegadeSettledIntentAuthBundle memory auth = RenegadeSettledIntentAuthBundle({
-            merkleDepth: merkleDepth,
-            statement: validityStatement,
-            validityProof: createDummyProof()
+            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
         });
 
         // Create output balance bundle
         OutputBalanceBundle memory outputBalanceBundle = createOutputBalanceBundle(merkleDepth);
         RenegadeSettledPrivateFillBundle memory bundleData = RenegadeSettledPrivateFillBundle({
-            auth: auth,
-            outputBalanceBundle: outputBalanceBundle,
-            authSettlementLinkingProof: createDummyLinkingProof()
+            auth: auth, outputBalanceBundle: outputBalanceBundle, authSettlementLinkingProof: createDummyLinkingProof()
         });
 
         // Encode the bundle

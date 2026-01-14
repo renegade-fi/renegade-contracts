@@ -39,10 +39,7 @@ interface IVerifier {
     /// @notice Verify a proof of `WITHDRAWAL VALIDITY`
     /// @param withdrawalProofBundle The proof bundle for the withdrawal
     /// @return True if the proof is valid, false otherwise
-    function verifyWithdrawalValidity(WithdrawalProofBundle calldata withdrawalProofBundle)
-        external
-        view
-        returns (bool);
+    function verifyWithdrawalValidity(WithdrawalProofBundle calldata withdrawalProofBundle) external view returns (bool);
 
     /// @notice Verify a proof of `VALID ORDER CANCELLATION`
     /// @param orderCancellationProofBundle The proof bundle for the order cancellation
@@ -87,10 +84,7 @@ interface IVerifier {
     /// @notice Verify a proof of `VALID NOTE REDEMPTION`
     /// @param proofBundle The proof bundle for the note redemption
     /// @return True if the proof is valid, false otherwise
-    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata proofBundle)
-        external
-        view
-        returns (bool);
+    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata proofBundle) external view returns (bool);
 
     /// @notice Verify a batch of proofs
     /// @param proofs The proofs to verify

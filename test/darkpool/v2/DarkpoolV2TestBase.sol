@@ -195,10 +195,7 @@ contract DarkpoolV2TestBase is TestUtils {
     /// @param min The minimum fixed point value
     /// @param max The maximum fixed point value
     /// @return result The random fixed point value
-    function randomFixedPoint(
-        FixedPoint memory min,
-        FixedPoint memory max
-    )
+    function randomFixedPoint(FixedPoint memory min, FixedPoint memory max)
         internal
         returns (FixedPoint memory result)
     {
@@ -263,11 +260,7 @@ contract DarkpoolV2TestBase is TestUtils {
     /// @param verifier The verifier to use (if not provided, uses the darkpool's verifier)
     function getSettlementContracts(IVerifier verifier) public view returns (DarkpoolContracts memory contracts) {
         contracts = DarkpoolContracts({
-            hasher: hasher,
-            verifier: verifier,
-            weth: IWETH9(address(weth)),
-            permit2: permit2,
-            vkeys: vkeys
+            hasher: hasher, verifier: verifier, weth: IWETH9(address(weth)), permit2: permit2, vkeys: vkeys
         });
     }
 

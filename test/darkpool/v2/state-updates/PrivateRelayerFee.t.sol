@@ -46,8 +46,7 @@ contract PrivateRelayerFeeTest is DarkpoolV2TestUtils {
         ciphertextData[2] = randomScalar();
 
         ciphertext = ElGamalCiphertext({
-            ephemeralKey: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }),
-            ciphertext: ciphertextData
+            ephemeralKey: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }), ciphertext: ciphertextData
         });
     }
 

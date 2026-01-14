@@ -25,7 +25,11 @@ contract CrossBundleTypesTestUtils is
     function _createSettlementContext()
         internal
         pure
-        override(PublicIntentSettlementTestUtils, PrivateIntentSettlementTestUtils, RenegadeSettledPrivateIntentTestUtils)
+        override(
+            PublicIntentSettlementTestUtils,
+            PrivateIntentSettlementTestUtils,
+            RenegadeSettledPrivateIntentTestUtils
+        )
         returns (SettlementContext memory context)
     {
         return PublicIntentSettlementTestUtils._createSettlementContext();

@@ -118,10 +118,7 @@ contract IntentConstraintsTest is PublicIntentSettlementTestUtils {
         uint256 minAmountOut = intent.minPrice.unsafeFixedPointMul(amountIn);
         uint256 amountOut = minAmountOut - 1;
         SettlementObligation memory obligation = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: amountIn,
-            amountOut: amountOut
+            inputToken: address(baseToken), outputToken: address(quoteToken), amountIn: amountIn, amountOut: amountOut
         });
         ObligationBundle memory corruptedObligationBundle = buildObligationBundle(obligation, obligation1);
         SettlementBundle memory newBundle = createPublicIntentSettlementBundle(intent, obligation);

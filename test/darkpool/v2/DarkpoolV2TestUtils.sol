@@ -138,9 +138,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     /// @dev Generate a random post match balance share
     function randomPostMatchBalanceShare() internal returns (PostMatchBalanceShare memory) {
         return PostMatchBalanceShare({
-            relayerFeeBalance: randomScalar(),
-            protocolFeeBalance: randomScalar(),
-            amount: randomScalar()
+            relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
         });
     }
 

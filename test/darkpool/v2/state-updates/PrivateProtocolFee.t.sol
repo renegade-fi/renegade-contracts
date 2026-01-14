@@ -40,8 +40,7 @@ contract PrivateProtocolFeeTest is DarkpoolV2TestUtils {
         ciphertextData[2] = randomScalar();
 
         ciphertext = ElGamalCiphertext({
-            ephemeralKey: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }),
-            ciphertext: ciphertextData
+            ephemeralKey: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }), ciphertext: ciphertextData
         });
     }
 
@@ -78,9 +77,7 @@ contract PrivateProtocolFeeTest is DarkpoolV2TestUtils {
         });
 
         proofBundle = PrivateProtocolFeePaymentProofBundle({
-            merkleDepth: merkleDepth,
-            statement: statement,
-            proof: createDummyProof()
+            merkleDepth: merkleDepth, statement: statement, proof: createDummyProof()
         });
     }
 

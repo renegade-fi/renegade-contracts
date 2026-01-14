@@ -72,9 +72,7 @@ contract PublicRelayerFeeTest is DarkpoolV2TestUtils {
         });
 
         proofBundle = PublicRelayerFeePaymentProofBundle({
-            merkleDepth: merkleDepth,
-            statement: statement,
-            proof: createDummyProof()
+            merkleDepth: merkleDepth, statement: statement, proof: createDummyProof()
         });
     }
 
