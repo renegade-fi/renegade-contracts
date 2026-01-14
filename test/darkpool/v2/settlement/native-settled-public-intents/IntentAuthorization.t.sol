@@ -101,7 +101,7 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
         authBundle.intentSignature.signature[0] = bytes1(uint8(authBundle.intentSignature.signature[0]) ^ 0xFF); // Modify
-            // signature
+        // signature
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
 

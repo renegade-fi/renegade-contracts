@@ -48,17 +48,17 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(
-            0, /* numDeposits */ 2, /* numWithdrawals */ 3, /* verificationCapacity */ 2 /* proofLinkingCapacity */
+            0, // numDeposits
+            2, // numWithdrawals
+            2, // verificationCapacity
+            2 // proofLinkingCapacity
         );
     }
 
     /// @dev Create a dummy intent and balance validity statement (first fill)
     function createSampleStatementFirstFill() internal returns (IntentAndBalanceValidityStatementFirstFill memory) {
         IntentPreMatchShare memory intentPublicShare = IntentPreMatchShare({
-            inToken: randomScalar(),
-            outToken: randomScalar(),
-            owner: randomScalar(),
-            minPrice: randomScalar()
+            inToken: randomScalar(), outToken: randomScalar(), owner: randomScalar(), minPrice: randomScalar()
         });
 
         BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
@@ -94,15 +94,11 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
         returns (IntentAndBalancePublicSettlementStatement memory)
     {
         PostMatchBalanceShare memory inBalancePublicShares = PostMatchBalanceShare({
-            relayerFeeBalance: randomScalar(),
-            protocolFeeBalance: randomScalar(),
-            amount: randomScalar()
+            relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
         });
 
         PostMatchBalanceShare memory outBalancePublicShares = PostMatchBalanceShare({
-            relayerFeeBalance: randomScalar(),
-            protocolFeeBalance: randomScalar(),
-            amount: randomScalar()
+            relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
         });
 
         return IntentAndBalancePublicSettlementStatement({
@@ -181,9 +177,7 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
 
         // Create auth bundle
         RenegadeSettledIntentAuthBundleFirstFill memory auth = RenegadeSettledIntentAuthBundleFirstFill({
-            merkleDepth: merkleDepth,
-            statement: validityStatement,
-            validityProof: createDummyProof()
+            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
         });
         OutputBalanceBundle memory outputBalanceBundle = createSampleOutputBalanceBundle();
         RenegadeSettledIntentFirstFillBundle memory bundleData = RenegadeSettledIntentFirstFillBundle({
@@ -196,9 +190,7 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
 
         // Encode the obligation and bundle
         return SettlementBundle({
-            isFirstFill: true,
-            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
-            data: abi.encode(bundleData)
+            isFirstFill: true, bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT, data: abi.encode(bundleData)
         });
     }
 
@@ -217,9 +209,7 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
 
         // Create auth bundle (no signature needed for subsequent fills)
         RenegadeSettledIntentAuthBundle memory auth = RenegadeSettledIntentAuthBundle({
-            merkleDepth: merkleDepth,
-            statement: validityStatement,
-            validityProof: createDummyProof()
+            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
         });
         OutputBalanceBundle memory outputBalanceBundle = createSampleOutputBalanceBundle();
         RenegadeSettledIntentBundle memory bundleData = RenegadeSettledIntentBundle({
@@ -232,9 +222,7 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
 
         // Encode the obligation and bundle
         return SettlementBundle({
-            isFirstFill: false,
-            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
-            data: abi.encode(bundleData)
+            isFirstFill: false, bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT, data: abi.encode(bundleData)
         });
     }
 }

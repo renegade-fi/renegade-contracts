@@ -134,8 +134,7 @@ contract FullMatchTests is PublicIntentSettlementTestUtils {
         );
 
         ObligationBundle memory obligationBundle = ObligationBundle({
-            obligationType: ObligationType.PUBLIC,
-            data: abi.encode(trade1Obligation0, trade1Obligation1)
+            obligationType: ObligationType.PUBLIC, data: abi.encode(trade1Obligation0, trade1Obligation1)
         });
         SettlementBundle memory party0Bundle = createPublicIntentSettlementBundleWithSigners(
             permit0.intent, trade1Obligation0, party0.privateKey, executor.privateKey
@@ -185,8 +184,7 @@ contract FullMatchTests is PublicIntentSettlementTestUtils {
             amountOut: party0Input
         });
         ObligationBundle memory obligationBundle2 = ObligationBundle({
-            obligationType: ObligationType.PUBLIC,
-            data: abi.encode(trade2Obligation0, trade2Obligation1)
+            obligationType: ObligationType.PUBLIC, data: abi.encode(trade2Obligation0, trade2Obligation1)
         });
 
         SettlementBundle memory party0Bundle2 = createPublicIntentSettlementBundleWithSigners(

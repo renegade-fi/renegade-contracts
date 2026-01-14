@@ -146,11 +146,7 @@ contract Verifier is IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata proofBundle)
-        external
-        view
-        returns (bool)
-    {
+    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata proofBundle) external view returns (bool) {
         VerificationKey memory vk = VKEYS.noteRedemptionKeys();
         BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
         return VerifierCore.verify(proofBundle.proof, publicInputs, vk);

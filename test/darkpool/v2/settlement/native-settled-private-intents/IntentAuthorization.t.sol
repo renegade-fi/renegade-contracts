@@ -95,7 +95,9 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidIntentCommitmentSignature_wrongSigner() public {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(true /* isFirstFill */ );
+            createSamplePrivateIntentBundle(
+                true /* isFirstFill */
+            );
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
             abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
@@ -135,7 +137,9 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidMerkleRoot() public {
         // Create bundle for subsequent fill (not first fill)
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(false /* isFirstFill */ );
+            createSamplePrivateIntentBundle(
+                false /* isFirstFill */
+            );
 
         // Decode the bundle data
         PrivateIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
