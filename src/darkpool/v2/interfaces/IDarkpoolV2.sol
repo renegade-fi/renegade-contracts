@@ -117,6 +117,10 @@ interface IDarkpoolV2 {
     error PermitTokenMismatch(address permitToken, address transferToken);
     /// @notice Thrown when the permit spender is not the darkpool
     error PermitSpenderMismatch(address permitSpender, address expected);
+    /// @notice Thrown when an address parameter is zero
+    error AddressCannotBeZero();
+    /// @notice Thrown when fee is set to zero
+    error FeeCannotBeZero();
 
     // --- Events --- //
 
@@ -137,13 +141,31 @@ interface IDarkpoolV2 {
     /// @notice Emitted when a new recovery ID is registered on-chain
     /// @param recoveryId The recovery ID that was registered
     event RecoveryIdRegistered(BN254.ScalarField indexed recoveryId);
-    /// @notice Emitted when a note is posted to the darkpool
-    /// @param noteCommitment The commitment to the note
-    event NotePosted(uint256 indexed noteCommitment);
     /// @notice Emitted when a public order is cancelled
     /// @param orderHash The hash of the cancelled order
     /// @param owner The owner who cancelled the order
     event PublicOrderCancelled(bytes32 indexed orderHash, address indexed owner);
+
+    // --- Admin Events --- //
+
+    /// @notice Emitted when the protocol fee rate is changed
+    /// @param newFee The new protocol fee rate
+    event FeeChanged(uint256 indexed newFee);
+    /// @notice Emitted when a per-pair fee override is changed
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @param newFee The new fee rate for the pair
+    event ExternalMatchFeeChanged(address indexed asset0, address indexed asset1, uint256 indexed newFee);
+    /// @notice Emitted when the protocol's public encryption key is rotated
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    event PubkeyRotated(uint256 indexed newPubkeyX, uint256 indexed newPubkeyY);
+    /// @notice Emitted when the external fee collection address is changed
+    /// @param newAddress The new fee collection address
+    event ExternalFeeCollectionAddressChanged(address indexed newAddress);
+    /// @notice Emitted when a note is posted to the darkpool
+    /// @param noteCommitment The commitment of the posted note
+    event NotePosted(uint256 indexed noteCommitment);
 
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract
@@ -294,4 +316,40 @@ interface IDarkpoolV2 {
         SettlementBundle calldata internalPartySettlementBundle
     )
         external;
+
+    // --- Admin Interface --- //
+    // Note: owner() and paused() are inherited from OpenZeppelin's Ownable and Pausable contracts
+
+    /// @notice Pauses the contract
+    function pause() external;
+
+    /// @notice Unpauses the contract
+    function unpause() external;
+
+    /// @notice Set the default protocol fee rate
+    /// @param newFeeRateRepr The new fee rate as FixedPoint repr
+    function setDefaultProtocolFeeRate(uint256 newFeeRateRepr) external;
+
+    /// @notice Set fee override for external matches on a specific trading pair
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @param feeRateRepr The fee rate repr (0 to remove override)
+    function setExternalMatchFeeOverride(address asset0, address asset1, uint256 feeRateRepr) external;
+
+    /// @notice Set the protocol fee recipient address
+    /// @param newRecipient The new protocol fee recipient address
+    function setProtocolFeeRecipient(address newRecipient) external;
+
+    /// @notice Set the protocol fee encryption key
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) external;
+
+    /// @notice Set the verifier contract
+    /// @param newVerifier The new verifier contract
+    function setVerifier(IVerifier newVerifier) external;
+
+    /// @notice Set the hasher contract
+    /// @param newHasher The new hasher contract
+    function setHasher(IHasher newHasher) external;
 }
