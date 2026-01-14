@@ -83,6 +83,9 @@ interface IVkeys {
     /// @notice Get the verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     function intentAndBalancePrivateSettlementKeys() external view returns (VerificationKey memory);
+    /// @notice Get the verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    function intentAndBalanceBoundedSettlementKeys() external view returns (VerificationKey memory);
 
     // -----------------------
     // | Proof Linking VKeys |
