@@ -1,7 +1,7 @@
 [
   {
     "type": "function",
-    "name": "cancelOrder",
+    "name": "cancelPrivateOrder",
     "inputs": [
       {
         "name": "auth",
@@ -160,6 +160,89 @@
                 "internalType": "BN254.ScalarField"
               }
             ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelPublicOrder",
+    "inputs": [
+      {
+        "name": "auth",
+        "type": "tuple",
+        "internalType": "struct OrderCancellationAuth",
+        "components": [
+          {
+            "name": "signature",
+            "type": "tuple",
+            "internalType": "struct SignatureWithNonce",
+            "components": [
+              {
+                "name": "nonce",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct PublicIntentPermit",
+        "components": [
+          {
+            "name": "intent",
+            "type": "tuple",
+            "internalType": "struct Intent",
+            "components": [
+              {
+                "name": "inToken",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "outToken",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "owner",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "minPrice",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "amountIn",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "executor",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       }
@@ -2266,6 +2349,25 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "BN254.ScalarField"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicOrderCancelled",
+    "inputs": [
+      {
+        "name": "orderHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false

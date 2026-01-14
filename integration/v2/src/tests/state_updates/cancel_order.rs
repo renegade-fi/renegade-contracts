@@ -31,7 +31,7 @@ async fn test_cancel_order(args: TestArgs) -> Result<()> {
     // Submit a cancellation transaction
     let (auth, bundle) =
         generate_cancellation_bundle(&elements.intent, &elements.intent_opening, &args)?;
-    let tx = args.darkpool.cancelOrder(auth, bundle);
+    let tx = args.darkpool.cancelPrivateOrder(auth, bundle);
     wait_for_tx_success(tx).await?;
 
     // Check that the intent's nullifier is spent

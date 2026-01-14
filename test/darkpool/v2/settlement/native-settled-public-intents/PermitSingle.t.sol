@@ -346,7 +346,8 @@ contract PermitSingleTests is PublicIntentSettlementTestUtils {
             address(quoteToken),
             uint160(permit0.intent.amountIn),
             uint48(block.timestamp + 1 days),
-            0 // nonce
+            0, // nonce
+            address(darkpool)
         );
 
         ObligationBundle memory obligationBundle = _createObligationBundle(obligation0, obligation1);

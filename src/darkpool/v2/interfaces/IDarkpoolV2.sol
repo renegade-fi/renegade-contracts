@@ -19,6 +19,7 @@ import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMat
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
+import { PublicIntentPermit } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -139,6 +140,10 @@ interface IDarkpoolV2 {
     /// @notice Emitted when a note is posted to the darkpool
     /// @param noteCommitment The commitment to the note
     event NotePosted(uint256 indexed noteCommitment);
+    /// @notice Emitted when a public order is cancelled
+    /// @param orderHash The hash of the cancelled order
+    /// @param owner The owner who cancelled the order
+    event PublicOrderCancelled(bytes32 indexed orderHash, address indexed owner);
 
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract
@@ -227,11 +232,18 @@ interface IDarkpoolV2 {
     /// @notice Cancel an order in the darkpool
     /// @param auth The authorization for the order cancellation
     /// @param orderCancellationProofBundle The proof bundle for the order cancellation
-    function cancelOrder(
+    function cancelPrivateOrder(
         OrderCancellationAuth memory auth,
         OrderCancellationProofBundle calldata orderCancellationProofBundle
     )
         external;
+
+    /// @notice Cancel a public intent in the darkpool
+    /// @dev This cancels a public intent by zeroing its entry in the openPublicIntents mapping.
+    /// @dev The owner must sign H("cancel" || intentHash) with a nonce for replay protection.
+    /// @param auth The authorization for the order cancellation
+    /// @param permit The public intent permit identifying the intent to cancel
+    function cancelPublicOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) external;
 
     /// @notice Pay protocol fees publicly on a balance
     /// @param proofBundle The proof bundle for the public protocol fee payment
