@@ -15,12 +15,6 @@ use renegade_abi::v2::IDarkpoolV2::{
     SettlementBundle,
 };
 use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
-use renegade_darkpool_types::{
-    balance::{Balance, DarkpoolStateBalance, PostMatchBalanceShare, PreMatchBalanceShare},
-    intent::{DarkpoolStateIntent, Intent, PreMatchIntentShare},
-    settlement_obligation::SettlementObligation,
-    state_wrapper::StateWrapper,
-};
 use renegade_circuits::{
     singleprover_prove_with_hint,
     test_helpers::{BOUNDED_MAX_AMT, create_random_state_wrapper, random_price},
@@ -56,6 +50,12 @@ use renegade_circuits::{
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{MERKLE_HEIGHT, Scalar};
+use renegade_darkpool_types::{
+    balance::{Balance, DarkpoolStateBalance, PostMatchBalanceShare, PreMatchBalanceShare},
+    intent::{DarkpoolStateIntent, Intent, PreMatchIntentShare},
+    settlement_obligation::SettlementObligation,
+    state_wrapper::StateWrapper,
+};
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
@@ -692,7 +692,7 @@ fn generate_settlement_proof(
 // --- Proof Linking --- //
 
 /// Generate a linking proof between a validity proof and a settlement proof
-fn generate_validity_settlement_linking_proof(
+pub(crate) fn generate_validity_settlement_linking_proof(
     validity_hint: &ProofLinkingHint,
     settlement_hint: &ProofLinkingHint,
 ) -> Result<PlonkLinkProof> {
@@ -702,7 +702,7 @@ fn generate_validity_settlement_linking_proof(
 }
 
 /// Generate a linking proof between an output balance validity proof and a settlement proof
-fn generate_output_balance_settlement_linking_proof(
+pub(crate) fn generate_output_balance_settlement_linking_proof(
     output_balance_hint: &ProofLinkingHint,
     settlement_hint: &ProofLinkingHint,
 ) -> Result<PlonkLinkProof> {
