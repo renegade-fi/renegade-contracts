@@ -151,7 +151,7 @@ contract DepositTest is DarkpoolV2TestUtils {
         BN254.ScalarField oldBalanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();
         BN254.ScalarField newAmountShare = randomScalar();
-        BN254.ScalarField merkleRoot = randomScalar();
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         BN254.ScalarField recoveryId = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         ValidDepositStatement memory statement = ValidDepositStatement({

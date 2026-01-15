@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { DarkpoolV2TestUtils } from "../DarkpoolV2TestUtils.sol";
 import { OrderCancellationProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
@@ -60,12 +61,14 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
     /// @notice Create an order cancellation proof bundle for testing
     /// @return The order cancellation proof bundle
     function createOrderCancellationProofBundle() internal returns (OrderCancellationProofBundle memory) {
-        BN254.ScalarField merkleRoot = randomScalar();
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         BN254.ScalarField oldIntentNullifier = randomScalar();
         address owner = intentOwner.addr;
 
         ValidOrderCancellationStatement memory statement = ValidOrderCancellationStatement({
-            merkleRoot: merkleRoot, oldIntentNullifier: oldIntentNullifier, owner: owner
+            merkleRoot: merkleRoot,
+            oldIntentNullifier: oldIntentNullifier,
+            owner: owner
         });
 
         return OrderCancellationProofBundle({ statement: statement, proof: createDummyProof() });
