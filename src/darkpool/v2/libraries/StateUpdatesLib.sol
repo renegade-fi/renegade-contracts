@@ -363,8 +363,9 @@ library StateUpdatesLib {
         state.assertRootInHistory(merkleRoot);
 
         // The relayer (fee recipient) must sign the note's encryption to authorize the ciphertext
-        // The receiver is leaked from the balance itself in the statement, so we can check that address recovery
-        // matches the expected value.
+        // This implicitly validates the ciphertext; i.e the protocol delegates validation to the receiver.
+        // The receiver address  is leaked from the balance itself in the statement, so we can check that signature
+        // identity recovery matches the expected value.
         address receiver = proofBundle.statement.relayerFeeReceiver;
         bytes memory ciphertextBytes = abi.encode(proofBundle.noteCiphertext);
         bytes32 ciphertextHash = EfficientHashLib.hash(ciphertextBytes);
