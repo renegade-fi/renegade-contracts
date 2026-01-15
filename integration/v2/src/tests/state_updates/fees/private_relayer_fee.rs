@@ -34,7 +34,8 @@ pub async fn test_pay_private_relayer_fee(args: TestArgs) -> Result<()> {
     // Build a proof bundle
     let bal = &mut state_elements.output_balance;
     let opening = state_elements.output_balance_opening;
-    let proof_bundle = build_proof_bundle(bal, &opening, &args)?;
+    let chain_id = args.chain_id().await?;
+    let proof_bundle = build_proof_bundle(bal, &opening, chain_id, &args)?;
 
     // Send the txn and check the recipient balances before and after
     let recipient = bal.inner.relayer_fee_recipient;
@@ -59,6 +60,7 @@ integration_test_async!(test_pay_private_relayer_fee);
 pub fn build_proof_bundle(
     bal: &mut DarkpoolStateBalance,
     opening: &MerkleAuthenticationPath,
+    chain_id: u64,
     args: &TestArgs,
 ) -> Result<PrivateRelayerFeePaymentProofBundle> {
     // Prove the fee payment relation
@@ -67,7 +69,7 @@ pub fn build_proof_bundle(
     // Create and sign the ciphertext
     let key = random_elgamal_encryption_key();
     let (ciphertext, _) = note.encrypt(&key);
-    let relayer_sig = sign_ciphertext(&ciphertext, args)?;
+    let relayer_sig = sign_ciphertext(&ciphertext, chain_id, args)?;
 
     // Prove the fee payment relation
     Ok(PrivateRelayerFeePaymentProofBundle::new(
@@ -79,10 +81,14 @@ pub fn build_proof_bundle(
 }
 
 /// Sign a ciphertext with the relayer's signer
-fn sign_ciphertext(cipher: &NoteCiphertext, args: &TestArgs) -> Result<SignatureWithNonce> {
+fn sign_ciphertext(
+    cipher: &NoteCiphertext,
+    chain_id: u64,
+    args: &TestArgs,
+) -> Result<SignatureWithNonce> {
     let signer = &args.relayer_signer;
     let ciphertext = ElGamalCiphertext::from(cipher.clone());
-    let sig = sign_with_nonce(&ciphertext.abi_encode(), signer)?;
+    let sig = sign_with_nonce(&ciphertext.abi_encode(), chain_id, signer)?;
     Ok(sig)
 }
 

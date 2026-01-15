@@ -36,7 +36,7 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
         // Sign with the private key
         uint256 nonce = randomUint();
         bytes32 matchResultHash = permit.computeHash();
-        bytes32 signatureDigest = EfficientHashLib.hash(matchResultHash, bytes32(nonce));
+        bytes32 signatureDigest = EfficientHashLib.hash(matchResultHash, bytes32(nonce), bytes32(block.chainid));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });

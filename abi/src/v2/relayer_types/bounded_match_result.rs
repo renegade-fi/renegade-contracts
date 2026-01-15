@@ -30,6 +30,7 @@ impl From<CircuitBoundedMatchResult> for IDarkpoolV2::BoundedMatchResult {
 #[cfg(feature = "v2-auth-helpers")]
 impl BoundedMatchResultBundle {
     pub fn new(
+        chain_id: u64,
         bounded_match_result: &CircuitBoundedMatchResult,
         executor_signer: &PrivateKeySigner,
     ) -> Result<Self, SignerError> {
@@ -39,7 +40,7 @@ impl BoundedMatchResultBundle {
             matchResult: bounded_match_result.clone().into(),
         };
         let payload = permit.abi_encode();
-        let executor_signature = sign_with_nonce(payload.as_slice(), executor_signer)?;
+        let executor_signature = sign_with_nonce(payload.as_slice(), chain_id, executor_signer)?;
 
         Ok(Self {
             permit,

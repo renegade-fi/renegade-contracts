@@ -9,18 +9,25 @@ use crate::v2::IDarkpoolV2::SignatureWithNonce;
 
 /// Generate a signature with a nonce for a given message
 ///
-/// This is H(H(payload) || nonce)
+/// This is H(H(payload) || nonce || chainId)
 pub fn sign_with_nonce(
     payload: &[u8],
+    chain_id: u64,
     signer: &PrivateKeySigner,
 ) -> Result<SignatureWithNonce, SignerError> {
     // Pre-hash the payload
     let payload_digest = keccak256(payload);
 
-    // Hash the payload with the nonce
+    // Hash the payload with the nonce and chain ID
     let nonce = U256::random();
     let nonce_bytes = nonce.to_be_bytes::<{ U256::BYTES }>();
-    let full_payload = [payload_digest.as_slice(), nonce_bytes.as_slice()].concat();
+    let chain_id_bytes = U256::from(chain_id).to_be_bytes::<{ U256::BYTES }>();
+    let full_payload = [
+        payload_digest.as_slice(),
+        nonce_bytes.as_slice(),
+        chain_id_bytes.as_slice(),
+    ]
+    .concat();
     let digest = keccak256(&full_payload);
 
     let signature = signer.sign_hash_sync(&digest)?;

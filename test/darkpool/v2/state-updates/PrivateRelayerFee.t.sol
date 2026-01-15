@@ -46,7 +46,8 @@ contract PrivateRelayerFeeTest is DarkpoolV2TestUtils {
         ciphertextData[2] = randomScalar();
 
         ciphertext = ElGamalCiphertext({
-            ephemeralKey: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }), ciphertext: ciphertextData
+            ephemeralKey: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }),
+            ciphertext: ciphertextData
         });
     }
 
@@ -65,9 +66,9 @@ contract PrivateRelayerFeeTest is DarkpoolV2TestUtils {
         bytes memory ciphertextBytes = abi.encode(ciphertext);
         bytes32 ciphertextHash = EfficientHashLib.hash(ciphertextBytes);
 
-        // Hash the ciphertext hash with a nonce
+        // Hash the ciphertext hash with a nonce and chainId
         uint256 nonce = randomUint();
-        bytes32 signatureDigest = EfficientHashLib.hash(ciphertextHash, bytes32(nonce));
+        bytes32 signatureDigest = EfficientHashLib.hash(ciphertextHash, bytes32(nonce), bytes32(block.chainid));
 
         // Create the signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);

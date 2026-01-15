@@ -11,7 +11,7 @@ use crate::{
         },
         settlement_relayer_fee,
     },
-    util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
+    util::transactions::wait_for_tx_success,
 };
 use alloy::{primitives::U256, signers::local::PrivateKeySigner};
 use eyre::Result;
@@ -20,6 +20,7 @@ use renegade_abi::v2::{
     IDarkpoolV2::{BoundedMatchResultBundle, SettlementBundle},
     relayer_types::u256_to_u128,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
@@ -28,7 +29,6 @@ use renegade_circuits::{
         self, IntentOnlyBoundedSettlementCircuit, IntentOnlyBoundedSettlementStatement,
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_darkpool_types::{
     bounded_match_result::BoundedMatchResult,
     intent::{DarkpoolStateIntent, Intent},
@@ -46,20 +46,25 @@ async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) 
     // Fund the parties, party0 (internal party) sells the base; party1 (external party) sells the quote
     fund_parties(&args).await?;
 
-    let (intent, bounded_match_result, first_fill_balance) =
-        create_intent_and_bounded_match_result(&args)?;
+    let (intent, bounded_match_result, _) = create_intent_and_bounded_match_result(&args)?;
 
     // --- First Fill --- //
 
     // Build match result bundle
-    let bounded_match_result_bundle = build_match_result_bundle(&bounded_match_result, &args)?;
+    let bounded_match_result_bundle =
+        build_match_result_bundle(&bounded_match_result, &args).await?;
     let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result_bundle);
     let (internal_obligation, external_obligation) =
         create_obligations(&bounded_match_result_bundle, external_party_amt_in);
 
     // Build settlement bundle
-    let (mut state_intent, settlement_bundle0) =
-        build_settlement_bundle_first_fill(&args.party0_signer(), &intent, &bounded_match_result)?;
+    let chain_id = args.chain_id().await?;
+    let (_, settlement_bundle0) = build_settlement_bundle_first_fill(
+        chain_id,
+        &args.party0_signer(),
+        &intent,
+        &bounded_match_result,
+    )?;
 
     // Settle the first fill
     let external_party = args.tx_submitter.address();
@@ -75,7 +80,7 @@ async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) 
         bounded_match_result_bundle,
         settlement_bundle0,
     );
-    let tx_receipt = wait_for_tx_success(tx).await?;
+    wait_for_tx_success(tx).await?;
 
     let internal_party_base_after = args.base_balance(args.party0_addr()).await?;
     let external_party_base_after = args.base_balance(external_party).await?;
@@ -222,17 +227,20 @@ fn generate_settlement_proof(
 // --- Calldata Bundles --- //
 
 /// Build a match result bundle
-pub(crate) fn build_match_result_bundle(
+pub(crate) async fn build_match_result_bundle(
     bounded_match_result: &BoundedMatchResult,
     args: &TestArgs,
 ) -> Result<BoundedMatchResultBundle> {
+    let chain_id = args.chain_id().await?;
+    let executor = &args.relayer_signer;
     let bounded_match_result_bundle =
-        BoundedMatchResultBundle::new(bounded_match_result, &args.relayer_signer)?;
+        BoundedMatchResultBundle::new(chain_id, bounded_match_result, executor)?;
     Ok(bounded_match_result_bundle)
 }
 
 /// Build a settlement bundle for the first fill
 fn build_settlement_bundle_first_fill(
+    chain_id: u64,
     owner: &PrivateKeySigner,
     intent: &Intent,
     bounded_match_result: &BoundedMatchResult,
@@ -243,8 +251,13 @@ fn build_settlement_bundle_first_fill(
         generate_settlement_proof(intent, bounded_match_result)?;
     let linking_proof = generate_linking_proof(&validity_link_hint, &settlement_link_hint)?;
 
-    let auth_bundle =
-        build_auth_bundle_first_fill(owner, commitment, &validity_statement, &validity_proof)?;
+    let auth_bundle = build_auth_bundle_first_fill(
+        owner,
+        commitment,
+        chain_id,
+        &validity_statement,
+        &validity_proof,
+    )?;
     let settlement_bundle = SettlementBundle::private_intent_public_balance_bounded_first_fill(
         auth_bundle,
         settlement_statement.into(),

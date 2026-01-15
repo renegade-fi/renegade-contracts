@@ -49,9 +49,9 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
         // Generate a random nonce for replay protection
         uint256 nonce = vm.randomUint();
 
-        // Sign H(nullifierHash || nonce)
+        // Sign H(nullifierHash || nonce || chainId)
         bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
-        bytes32 signatureHash = EfficientHashLib.hash(nullifierHash, bytes32(nonce));
+        bytes32 signatureHash = EfficientHashLib.hash(nullifierHash, bytes32(nonce), bytes32(block.chainid));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(intentOwner.privateKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -84,9 +84,9 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
         // Generate a random nonce for replay protection
         uint256 nonce = vm.randomUint();
 
-        // Sign H(nullifierHash || nonce) with wrong signer
+        // Sign H(nullifierHash || nonce || chainId) with wrong signer
         bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
-        bytes32 signatureHash = EfficientHashLib.hash(nullifierHash, bytes32(nonce));
+        bytes32 signatureHash = EfficientHashLib.hash(nullifierHash, bytes32(nonce), bytes32(block.chainid));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongSigner.privateKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 

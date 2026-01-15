@@ -10,9 +10,9 @@ use alloy::{
 use eyre::Result;
 use rand::{Rng, thread_rng};
 use renegade_abi::v2::IDarkpoolV2::{
-    self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle, PublicIntentPermit,
-    RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill, SettlementBundle,
-    SignedPermitSingle,
+    self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle,
+    PublicIntentPermit, RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill,
+    SettlementBundle, SignedPermitSingle,
 };
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
@@ -106,7 +106,8 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
             &args,
         )?;
     let settlement_bundle1 =
-        build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &first_obligation1, &args)?;
+        build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &first_obligation1, &args)
+            .await?;
 
     let (party0_base_before, party0_quote_before) =
         args.base_and_quote_balances(args.party0_addr()).await?;
@@ -160,7 +161,8 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
     )
     .await?;
     let settlement_bundle1 =
-        build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &second_obligation1, &args)?;
+        build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &second_obligation1, &args)
+            .await?;
 
     let (party0_base_before, party0_quote_before) =
         args.base_and_quote_balances(args.party0_addr()).await?;
@@ -266,7 +268,7 @@ pub async fn fund_ring0_party(
 // --- First Fill Bundle --- //
 
 /// Build a ring 0 settlement bundle
-pub fn build_settlement_bundle_ring0(
+pub async fn build_settlement_bundle_ring0(
     signer: &PrivateKeySigner,
     intent: &Intent,
     obligation: &SettlementObligation,
@@ -278,12 +280,13 @@ pub fn build_settlement_bundle_ring0(
     };
 
     // Sign the intent with the owner's key
-    let intent_signature = permit.sign(signer)?;
+    let chain_id = args.chain_id().await?;
+    let intent_signature = permit.sign(chain_id, signer)?;
     let contracts_obligation = IDarkpoolV2::SettlementObligation::from(obligation.clone());
     let relayer_fee = settlement_relayer_fee_rate(args);
     let executor_signer = &args.relayer_signer;
     let executor_signature =
-        contracts_obligation.create_executor_signature(&relayer_fee, executor_signer)?;
+        contracts_obligation.create_executor_signature(&relayer_fee, chain_id, executor_signer)?;
     let auth_bundle = PublicIntentAuthBundle {
         intentPermit: permit,
         intentSignature: intent_signature,
