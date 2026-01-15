@@ -14,6 +14,7 @@ use renegade_abi::v2::IDarkpoolV2::{
     RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill, SettlementBundle,
     SignedPermitSingle,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
@@ -48,10 +49,9 @@ use renegade_circuits::{
         },
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{MERKLE_HEIGHT, Scalar};
 use renegade_darkpool_types::{
-    balance::{Balance, DarkpoolStateBalance, PostMatchBalanceShare, PreMatchBalanceShare},
+    balance::{DarkpoolBalance, DarkpoolStateBalance, PostMatchBalanceShare, PreMatchBalanceShare},
     intent::{DarkpoolStateIntent, Intent, PreMatchIntentShare},
     settlement_obligation::SettlementObligation,
     state_wrapper::StateWrapper,
@@ -571,7 +571,7 @@ pub(crate) fn generate_new_output_balance_validity_proof(
 
     // Create a new balance
     let authority = test_args.balance_authority.public_key();
-    let bal = Balance::new(
+    let bal = DarkpoolBalance::new(
         obligation.output_token,
         owner,
         relayer_fee_recipient,

@@ -5,6 +5,7 @@ use renegade_abi::v2::{
     IDarkpoolV2::{Deposit, DepositProofBundle},
     relayer_types::u256_to_u128,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuits::{
     singleprover_prove,
     test_helpers::check_constraints_satisfied,
@@ -12,7 +13,6 @@ use renegade_circuits::{
         SizedValidDeposit, SizedValidDepositWitness, ValidDepositStatement, ValidDepositWitness,
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_crypto::fields::u256_to_scalar;
 use renegade_darkpool_types::balance::DarkpoolStateBalance;
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
@@ -45,7 +45,7 @@ async fn test_deposit(args: TestArgs) -> Result<()> {
     fund_for_deposit(addr, &args.party0_signer(), &second_deposit, &args).await?;
 
     let proof_bundle = create_proof_bundle(&second_deposit, &balance, &merkle_path)?;
-    let commitment = u256_to_scalar(&proof_bundle.statement.newBalanceCommitment);
+    let commitment = u256_to_scalar(proof_bundle.statement.newBalanceCommitment);
     let deposit_auth =
         build_deposit_permit(commitment, &second_deposit, &args.party0_signer(), &args).await?;
 

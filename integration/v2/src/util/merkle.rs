@@ -8,10 +8,9 @@ use alloy::{
 };
 use eyre::{Result, eyre};
 use itertools::Itertools;
-use num_bigint::BigUint;
 use renegade_abi::v2::IDarkpoolV2::{self, IDarkpoolV2Events};
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::traits::{CircuitBaseType, SecretShareBaseType};
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{MERKLE_HEIGHT, Scalar};
 use renegade_crypto::fields::{scalar_to_u256, u256_to_scalar};
 use renegade_darkpool_types::state_wrapper::StateWrapper;
@@ -163,13 +162,13 @@ fn build_authentication_path(
     let path_siblings = size_vec(
         siblings
             .into_iter()
-            .map(|(_, v)| u256_to_scalar(&v))
+            .map(|(_, v)| u256_to_scalar(v))
             .collect_vec(),
     );
 
     MerkleAuthenticationPath {
         path_siblings,
-        leaf_index: BigUint::from(leaf_index),
+        leaf_index: leaf_index as u64,
         value: commitment,
     }
 }

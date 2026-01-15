@@ -1,6 +1,6 @@
 //! Balance type conversions
 
-use darkpool_types::balance::{BalanceShare, PostMatchBalanceShare, PreMatchBalanceShare};
+use darkpool_types::balance::{DarkpoolBalanceShare, PostMatchBalanceShare, PreMatchBalanceShare};
 use renegade_circuit_types_v2::{
     primitives::baby_jubjub::BabyJubJubPointShare, schnorr::SchnorrPublicKeyShare,
 };
@@ -11,8 +11,8 @@ use crate::v2::{
     IDarkpoolV2::{self},
 };
 
-impl From<BalanceShare> for IDarkpoolV2::BalanceShare {
-    fn from(share: BalanceShare) -> Self {
+impl From<DarkpoolBalanceShare> for IDarkpoolV2::BalanceShare {
+    fn from(share: DarkpoolBalanceShare) -> Self {
         Self {
             mint: scalar_to_u256(&share.mint),
             owner: scalar_to_u256(&share.owner),
@@ -28,7 +28,7 @@ impl From<BalanceShare> for IDarkpoolV2::BalanceShare {
     }
 }
 
-impl From<IDarkpoolV2::BalanceShare> for BalanceShare {
+impl From<IDarkpoolV2::BalanceShare> for DarkpoolBalanceShare {
     fn from(share: IDarkpoolV2::BalanceShare) -> Self {
         Self {
             mint: u256_to_scalar(share.mint),

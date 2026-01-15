@@ -1,7 +1,7 @@
 //! State update tests
 
 use eyre::Result;
-use renegade_common::types::merkle::MerkleAuthenticationPath;
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_darkpool_types::{balance::DarkpoolStateBalance, intent::DarkpoolStateIntent};
 
 use crate::{

@@ -7,6 +7,7 @@ pub mod transfer_auth;
 // types to be present in the same macro invocation.
 sol! {
     #![sol(all_derives)]
+    #![sol(extra_derives(serde::Serialize, serde::Deserialize))]
     #[allow(missing_docs, clippy::too_many_arguments)]
     #[sol(rpc)]
     IDarkpoolV2,

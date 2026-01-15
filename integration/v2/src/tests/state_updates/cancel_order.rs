@@ -5,6 +5,7 @@ use renegade_abi::v2::{
     IDarkpoolV2::{OrderCancellationAuth, OrderCancellationProofBundle},
     auth_helpers::sign_with_nonce,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::PlonkProof;
 use renegade_circuits::{
     singleprover_prove,
@@ -13,7 +14,6 @@ use renegade_circuits::{
         ValidOrderCancellationWitness,
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_crypto::fields::scalar_to_u256;
 use renegade_darkpool_types::intent::DarkpoolStateIntent;
 use test_helpers::{assert_true_result, integration_test_async};

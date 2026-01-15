@@ -6,6 +6,7 @@ use renegade_abi::v2::{
     IDarkpoolV2::{ElGamalCiphertext, PrivateRelayerFeePaymentProofBundle, SignatureWithNonce},
     auth_helpers::sign_with_nonce,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::PlonkProof;
 use renegade_circuits::{
     singleprover_prove,
@@ -15,7 +16,6 @@ use renegade_circuits::{
         ValidPrivateRelayerFeePaymentWitness,
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_darkpool_types::{
     balance::DarkpoolStateBalance,
     note::{Note, NoteCiphertext},

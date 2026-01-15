@@ -6,10 +6,6 @@ use renegade_abi::v2::{
     IDarkpoolV2::{Deposit, NewBalanceDepositProofBundle},
     relayer_types::u256_to_u128,
 };
-use renegade_darkpool_types::{
-    balance::{Balance, DarkpoolStateBalance},
-    state_wrapper::StateWrapper,
-};
 use renegade_circuits::{
     singleprover_prove,
     test_helpers::{check_constraints_satisfied, random_csprng},
@@ -18,6 +14,10 @@ use renegade_circuits::{
     },
 };
 use renegade_crypto::fields::u256_to_scalar;
+use renegade_darkpool_types::{
+    balance::{DarkpoolBalance, DarkpoolStateBalance},
+    state_wrapper::StateWrapper,
+};
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
 
 use crate::{
@@ -66,7 +66,7 @@ pub async fn create_balance(
 ) -> Result<(TransactionReceipt, DarkpoolStateBalance)> {
     // Build calldata for the balance creation
     let (witness, bundle) = create_proof_bundle(deposit, args)?;
-    let commitment = u256_to_scalar(&bundle.statement.newBalanceCommitment);
+    let commitment = u256_to_scalar(bundle.statement.newBalanceCommitment);
     let deposit_auth = build_deposit_permit(commitment, deposit, signer, args).await?;
 
     // Send the txn
@@ -114,7 +114,7 @@ fn build_witness_statement(
 ) -> Result<(ValidBalanceCreateWitness, ValidBalanceCreateStatement)> {
     // Build a state object
     let amount_u128 = u256_to_u128(deposit.amount);
-    let balance = Balance::new(
+    let balance = DarkpoolBalance::new(
         deposit.token,
         deposit.from,
         args.relayer_signer_addr(),

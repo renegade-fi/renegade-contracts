@@ -13,12 +13,8 @@ use renegade_abi::v2::{
     },
     auth_helpers::sign_with_nonce,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint};
-use renegade_darkpool_types::{
-    intent::{DarkpoolStateIntent, Intent},
-    settlement_obligation::SettlementObligation,
-    state_wrapper::StateWrapper,
-};
 use renegade_circuits::{
     singleprover_prove_with_hint,
     test_helpers::{BOUNDED_MAX_AMT, random_price},
@@ -35,9 +31,13 @@ use renegade_circuits::{
         },
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{MERKLE_HEIGHT, Scalar};
 use renegade_crypto::fields::scalar_to_u256;
+use renegade_darkpool_types::{
+    intent::{DarkpoolStateIntent, Intent},
+    settlement_obligation::SettlementObligation,
+    state_wrapper::StateWrapper,
+};
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{

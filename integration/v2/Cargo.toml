@@ -14,6 +14,7 @@ renegade-abi = { package = "abi", path = "../../abi", features = [
     "v2-auth-helpers",
     "transfer-auth",
 ] }
+renegade-account-types = { package = "types-account", path = "/Users/joeykraut/work/renegade/crates/relayer-types/types-account" }
 renegade-circuit-types = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/crates/circuits/circuit-types" }
 renegade-darkpool-types = { package = "darkpool-types", path = "/Users/joeykraut/work/renegade/crates/darkpool-types" }
 renegade-circuits = { package = "circuits-core", path = "/Users/joeykraut/work/renegade/crates/circuits/circuits-core", features = [
@@ -24,7 +25,6 @@ renegade-crypto = { package = "crypto", path = "/Users/joeykraut/work/renegade/c
 renegade-util = { package = "util", path = "/Users/joeykraut/work/renegade/crates/util", default-features = false, features = [
     "blockchain",
 ] }
-renegade-common = { package = "common", path = "/Users/joeykraut/work/renegade/crates/common" }
 test-helpers = { package = "test-helpers", path = "/Users/joeykraut/work/renegade/crates/testing/test-helpers" }
 
 # === Test Harness Dependencies === #

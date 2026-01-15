@@ -5,12 +5,8 @@ use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::{
     ObligationBundle, OutputBalanceBundle, RenegadeSettledIntentAuthBundle, SettlementBundle,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
-use renegade_darkpool_types::{
-    balance::{DarkpoolStateBalance, PostMatchBalanceShare},
-    intent::{DarkpoolStateIntent, Intent},
-    settlement_obligation::SettlementObligation,
-};
 use renegade_circuits::{
     singleprover_prove_with_hint,
     zk_circuits::{
@@ -30,8 +26,12 @@ use renegade_circuits::{
         },
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::MERKLE_HEIGHT;
+use renegade_darkpool_types::{
+    balance::{DarkpoolStateBalance, PostMatchBalanceShare},
+    intent::{DarkpoolStateIntent, Intent},
+    settlement_obligation::SettlementObligation,
+};
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{

@@ -6,6 +6,7 @@ use renegade_abi::v2::{
     relayer_types::u256_to_u128,
     transfer_auth::withdrawal::create_withdrawal_auth,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuits::{
     singleprover_prove,
     test_helpers::check_constraints_satisfied,
@@ -14,7 +15,6 @@ use renegade_circuits::{
         ValidWithdrawalWitness,
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_darkpool_types::balance::DarkpoolStateBalance;
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
 
