@@ -22,7 +22,8 @@ struct DarkpoolState {
     mapping(bytes32 => uint256) openPublicIntents;
     /// @notice A store of spent signature nonces for user updates
     /// @dev This is used to prevent a relayer from submitting the same update twice
-    mapping(uint256 => bool) spentNonces;
+    /// @dev Nonces are namespaced by signer address to prevent cross-user collisions
+    mapping(address => mapping(uint256 => bool)) spentNonces;
     /// @notice The default protocol fee rate for the darkpool
     FixedPoint defaultProtocolFeeRate;
     /// @notice The address at which external parties pay protocol fees
@@ -197,10 +198,11 @@ library DarkpoolStateLib {
 
     /// @notice Spend a signature nonce
     /// @param state The darkpool state
+    /// @param signer The address of the signer who owns the nonce
     /// @param nonce The nonce to spend
-    function spendNonce(DarkpoolState storage state, uint256 nonce) internal {
-        if (state.spentNonces[nonce]) revert NonceAlreadySpent();
-        state.spentNonces[nonce] = true;
+    function spendNonce(DarkpoolState storage state, address signer, uint256 nonce) internal {
+        if (state.spentNonces[signer][nonce]) revert NonceAlreadySpent();
+        state.spentNonces[signer][nonce] = true;
     }
 
     /// @notice Set the per-pair fee override for a trading pair

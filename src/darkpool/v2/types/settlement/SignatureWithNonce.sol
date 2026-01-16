@@ -32,6 +32,7 @@ library SignatureWithNonceLib {
     /// @param state The darkpool state to spend the nonce in
     /// @return Whether the signature is valid
     /// @dev Verifies the signature over H(digest || nonce || chainId) and always spends the nonce to prevent replay
+    /// @dev Nonces are namespaced by signer address to prevent cross-user collisions
     function verifyPrehashedAndSpendNonce(
         SignatureWithNonce memory signature,
         address expectedSigner,
@@ -41,8 +42,8 @@ library SignatureWithNonceLib {
         internal
         returns (bool)
     {
-        // Spend the nonce to prevent replay
-        state.spendNonce(signature.nonce);
+        // Spend the nonce to prevent replay (namespaced by signer)
+        state.spendNonce(expectedSigner, signature.nonce);
 
         // Verify the signature
         bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(signature.nonce), bytes32(block.chainid));

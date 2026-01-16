@@ -87,6 +87,27 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
         return _createOrderCancellationAuth(permit, wrongSigner.privateKey);
     }
 
+    /// @notice Create a cancellation auth with a specific nonce value
+    /// @param permit The permit to cancel
+    /// @param privateKey The private key to sign with
+    /// @param nonce The specific nonce value to use
+    /// @return auth The cancellation authorization
+    function _createOrderCancellationAuthWithNonce(
+        PublicIntentPermit memory permit,
+        uint256 privateKey,
+        uint256 nonce
+    )
+        internal
+        returns (OrderCancellationAuth memory auth)
+    {
+        bytes32 intentHash = permit.computeHash();
+        bytes32 cancelDigest = keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, intentHash));
+        bytes32 signatureHash = EfficientHashLib.hash(cancelDigest, bytes32(nonce), bytes32(block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signatureHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+        auth = OrderCancellationAuth({ signature: SignatureWithNonce({ nonce: nonce, signature: signature }) });
+    }
+
     // ---------
     // | Tests |
     // ---------
@@ -157,5 +178,40 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
         // Should fail because the signature is over the wrong intentHash
         vm.expectRevert(IDarkpoolV2.InvalidOrderCancellationSignature.selector);
         darkpool.cancelPublicOrder(authForA, permitB);
+    }
+
+    /// @notice Test that two different users can use the same nonce value (namespaced nonces)
+    /// @dev This test demonstrates that the DoS vector from global nonces is fixed
+    function test_cancel_sameNonceDifferentUsers() public {
+        // Generate two different permits for two different users
+        PublicIntentPermit memory permitA = generateRandomPublicIntentPermit();
+        PublicIntentPermit memory permitB = generateRandomPublicIntentPermit();
+        permitB.intent.owner = wrongSigner.addr;
+
+        // Set up both intents as open (simulate they were created)
+        bytes32 intentHashA = permitA.computeHash();
+        bytes32 intentHashB = permitB.computeHash();
+        uint256 openAmount = 1000 ether;
+        _setOpenIntentAmount(intentHashA, openAmount);
+        _setOpenIntentAmount(intentHashB, openAmount);
+
+        // Use the same nonce value for both users
+        uint256 sharedNonce = 12_345;
+
+        // Create cancellation auths for both users with the same nonce
+        // Each auth must be signed by the permit's owner
+        OrderCancellationAuth memory authA =
+            _createOrderCancellationAuthWithNonce(permitA, intentOwner.privateKey, sharedNonce);
+        OrderCancellationAuth memory authB =
+            _createOrderCancellationAuthWithNonce(permitB, wrongSigner.privateKey, sharedNonce);
+
+        // Both cancellations should succeed because nonces are namespaced by signer
+        // (Previously, the second cancellation would revert with NonceAlreadySpent)
+        darkpool.cancelPublicOrder(authA, permitA);
+        darkpool.cancelPublicOrder(authB, permitB);
+
+        // Verify both intents were cancelled
+        assertEq(darkpool.openPublicIntents(intentHashA), 0, "Intent A should be cancelled");
+        assertEq(darkpool.openPublicIntents(intentHashB), 0, "Intent B should be cancelled");
     }
 }
