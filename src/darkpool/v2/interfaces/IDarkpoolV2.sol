@@ -121,6 +121,8 @@ interface IDarkpoolV2 {
     error AddressCannotBeZero();
     /// @notice Thrown when fee is set to zero
     error FeeCannotBeZero();
+    /// @notice Thrown when a token is not whitelisted
+    error TokenNotWhitelisted(address token);
 
     // --- Events --- //
 
@@ -350,4 +352,14 @@ interface IDarkpoolV2 {
     /// @notice Set the hasher contract
     /// @param newHasher The new hasher contract
     function setHasher(IHasher newHasher) external;
+
+    /// @notice Check if a token is whitelisted
+    /// @param token The token address to check
+    /// @return Whether the token is whitelisted
+    function isTokenWhitelisted(address token) external view returns (bool);
+
+    /// @notice Set the whitelist status for a token
+    /// @param token The token address to set whitelist status for
+    /// @param whitelisted Whether the token should be whitelisted
+    function setTokenWhitelist(address token, bool whitelisted) external;
 }

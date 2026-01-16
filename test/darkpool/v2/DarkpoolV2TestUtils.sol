@@ -15,7 +15,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { Intent, IntentPublicShare } from "darkpoolv2-types/Intent.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
-import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
@@ -24,6 +24,7 @@ import { FeeRate } from "darkpoolv2-types/Fee.sol";
 contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     using FixedPointLib for FixedPoint;
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
+    using DarkpoolStateLib for DarkpoolState;
 
     // Test wallets
     Vm.Wallet internal intentOwner;
@@ -58,6 +59,11 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         // Initialize the darkpoolState's merkle mountain range to match the darkpool contract's initialization
         // This ensures that roots stored during initialization are available in the test state
         MerkleMountainLib.initialize(darkpoolState.merkleMountainRange, DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
+
+        // Whitelist tokens in the test state to match the contract state
+        darkpoolState.setTokenWhitelist(address(baseToken), true);
+        darkpoolState.setTokenWhitelist(address(quoteToken), true);
+        darkpoolState.setTokenWhitelist(address(weth), true);
     }
 
     // --- ERC20 Balances --- //
@@ -138,7 +144,9 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     /// @dev Generate a random post match balance share
     function randomPostMatchBalanceShare() internal returns (PostMatchBalanceShare memory) {
         return PostMatchBalanceShare({
-            relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
         });
     }
 

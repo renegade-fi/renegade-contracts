@@ -139,7 +139,7 @@ library SettlementLib {
     {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
             // Validate a public obligation bundle
-            validatePublicObligationBundle(obligationBundle);
+            validatePublicObligationBundle(obligationBundle, state);
         } else if (obligationBundle.obligationType == ObligationType.PRIVATE) {
             validatePrivateObligationBundle(obligationBundle, settlementContext, state, contracts.vkeys);
         } else {
@@ -149,26 +149,41 @@ library SettlementLib {
 
     /// @notice Validate a public obligation bundle
     /// @param obligationBundle The obligation bundle to validate
-    function validatePublicObligationBundle(ObligationBundle calldata obligationBundle) internal pure {
+    /// @param state The darkpool state containing all storage references
+    function validatePublicObligationBundle(
+        ObligationBundle calldata obligationBundle,
+        DarkpoolState storage state
+    )
+        internal
+        view
+    {
         // Decode the obligations
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
             obligationBundle.decodePublicObligations();
 
-        // 1. The input and output tokens must correspond to the same pair
+        // 1. Validate that all tokens are whitelisted
+        if (!state.isTokenWhitelisted(obligation0.inputToken)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(obligation0.inputToken);
+        }
+        if (!state.isTokenWhitelisted(obligation0.outputToken)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(obligation0.outputToken);
+        }
+
+        // 2. The input and output tokens must correspond to the same pair
         bool tokenCompatible =
             obligation0.inputToken == obligation1.outputToken && obligation0.outputToken == obligation1.inputToken;
         if (!tokenCompatible) {
             revert IDarkpoolV2.IncompatiblePairs();
         }
 
-        // 2. The input and output amounts must correspond
+        // 3. The input and output amounts must correspond
         bool amountCompatible =
             obligation0.amountIn == obligation1.amountOut && obligation0.amountOut == obligation1.amountIn;
         if (!amountCompatible) {
             revert IDarkpoolV2.IncompatibleAmounts();
         }
 
-        // 3. The input and output amounts must be valid
+        // 4. The input and output amounts must be valid
         // We only need to validate the input and output of one party as the checks above ensure they're symmetric
         DarkpoolConstants.validateAmount(obligation0.amountIn);
         DarkpoolConstants.validateAmount(obligation0.amountOut);
@@ -253,7 +268,12 @@ library SettlementLib {
     /// @notice Execute the transfers necessary for settlement
     /// @param settlementContext The settlement context to execute the transfers from
     /// @param contracts The contract references needed for settlement
-    function executeTransfers(SettlementContext memory settlementContext, DarkpoolContracts memory contracts) internal {
+    function executeTransfers(
+        SettlementContext memory settlementContext,
+        DarkpoolContracts memory contracts
+    )
+        internal
+    {
         // 1. Execute deposits
         // We execute deposits before withdrawals to ensure the darkpool is capitalized
         // Permit registration is handled if needed

@@ -171,6 +171,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         return _state.getProtocolFeeKey();
     }
 
+    /// @notice Check if a token is whitelisted
+    /// @param token The token address to check
+    /// @return Whether the token is whitelisted
+    function isTokenWhitelisted(address token) public view returns (bool) {
+        return _state.isTokenWhitelisted(token);
+    }
+
     // -----------------
     // | State Updates |
     // -----------------
@@ -343,6 +350,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     function setHasher(IHasher newHasher) external onlyOwner {
         if (address(newHasher) == address(0)) revert IDarkpoolV2.AddressCannotBeZero();
         hasher = newHasher;
+    }
+
+    /// @notice Set the whitelist status for a token
+    /// @param token The token address to set whitelist status for
+    /// @param whitelisted Whether the token should be whitelisted
+    function setTokenWhitelist(address token, bool whitelisted) external onlyOwner {
+        _state.setTokenWhitelist(token, whitelisted);
     }
 
     /// @notice Pause the darkpool

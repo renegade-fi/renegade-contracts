@@ -10,6 +10,7 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { WethMock } from "test-contracts/WethMock.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
@@ -51,7 +52,7 @@ contract DeployDevScript is Script, DeployV2Utils {
         // Call the shared deployment logic
         uint256 dummyProtocolFee = 1;
         address dummyExternalFeeRecipient = address(0x42);
-        deployCore(
+        address darkpoolAddr = deployCore(
             msg.sender, // Use deployer as owner
             dummyProtocolFee,
             dummyExternalFeeRecipient,
@@ -60,6 +61,14 @@ contract DeployDevScript is Script, DeployV2Utils {
             weth,
             vm
         );
+
+        // Whitelist tokens for the darkpool
+        DarkpoolV2 darkpool = DarkpoolV2(darkpoolAddr);
+        darkpool.setTokenWhitelist(address(baseToken), true);
+        darkpool.setTokenWhitelist(address(quoteToken), true);
+        darkpool.setTokenWhitelist(address(weth), true);
+        console.log("Whitelisted tokens: BaseToken, QuoteToken, WETH");
+
         vm.stopBroadcast();
     }
 }
