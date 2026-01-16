@@ -109,6 +109,37 @@ library StateUpdatesLib {
         emit IDarkpoolV2.PublicOrderCancelled(intentHash, owner);
     }
 
+    /// @notice Revoke a nonce to invalidate previously signed bundles
+    /// @dev This allows users to proactively invalidate signed bundles (e.g., first-fill bundles) that they've
+    /// given to relayers but haven't been submitted yet. The owner must sign H("revoke" || nonceToRevoke) with
+    /// a nonce for replay protection.
+    /// @param state The darkpool state containing all storage references
+    /// @param owner The owner who is revoking the nonce
+    /// @param nonceToRevoke The nonce to revoke
+    /// @param signature The signature over the revoke digest (with nonce for replay protection)
+    function revokeNonce(
+        DarkpoolState storage state,
+        address owner,
+        uint256 nonceToRevoke,
+        SignatureWithNonce calldata signature
+    )
+        external
+    {
+        // 1. Compute the revoke digest with domain separation: H("revoke" || nonceToRevoke)
+        bytes32 revokeDigest =
+            keccak256(abi.encodePacked(DarkpoolConstants.REVOKE_NONCE_DOMAIN, bytes32(nonceToRevoke)));
+
+        // 2. Verify the signature over the revoke digest by the owner (with nonce for replay protection)
+        bool sigValid = signature.verifyPrehashedAndSpendNonce(owner, revokeDigest, state);
+        if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
+
+        // 3. Spend the nonce to revoke it
+        state.spendNonce(owner, nonceToRevoke);
+
+        // 4. Emit revocation event
+        emit IDarkpoolV2.NonceRevoked(nonceToRevoke, owner);
+    }
+
     // --- Deposit --- //
 
     /// @notice Deposit into an existing balance in the darkpool
