@@ -65,7 +65,7 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
         uint256 nonce = vm.randomUint();
         bytes32 intentHash = permit.computeHash();
         bytes32 cancelDigest = keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, intentHash));
-        bytes32 signatureHash = EfficientHashLib.hash(cancelDigest, bytes32(nonce));
+        bytes32 signatureHash = EfficientHashLib.hash(cancelDigest, bytes32(nonce), bytes32(block.chainid));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
         auth = OrderCancellationAuth({ signature: SignatureWithNonce({ nonce: nonce, signature: signature }) });

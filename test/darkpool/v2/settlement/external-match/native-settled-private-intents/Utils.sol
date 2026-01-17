@@ -69,11 +69,11 @@ contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
         internal
         returns (SignatureWithNonce memory)
     {
-        // Hash the intent commitment with a random nonce
+        // Hash the intent commitment with a random nonce and chainId
         uint256 nonce = randomUint();
         bytes32 intentCommitmentBytes = bytes32(BN254.ScalarField.unwrap(intentCommitment));
         bytes32 commitmentHash = EfficientHashLib.hash(abi.encode(intentCommitmentBytes));
-        bytes32 signatureDigest = EfficientHashLib.hash(commitmentHash, bytes32(nonce));
+        bytes32 signatureDigest = EfficientHashLib.hash(commitmentHash, bytes32(nonce), bytes32(block.chainid));
 
         // Sign with the private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
@@ -153,12 +153,12 @@ contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
 
         // Create the bundle data
         PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData =
-            PrivateIntentPublicBalanceBoundedFirstFillBundle({
-                auth: auth,
-                settlementStatement: settlementStatement,
-                settlementProof: createDummyProof(),
-                authSettlementLinkingProof: createDummyLinkingProof()
-            });
+        PrivateIntentPublicBalanceBoundedFirstFillBundle({
+            auth: auth,
+            settlementStatement: settlementStatement,
+            settlementProof: createDummyProof(),
+            authSettlementLinkingProof: createDummyLinkingProof()
+        });
 
         // Encode and return the settlement bundle
         return SettlementBundle({
@@ -192,7 +192,9 @@ contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
 
         // Create auth bundle (no signature needed for subsequent fills)
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({
-            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
+            merkleDepth: merkleDepth,
+            statement: validityStatement,
+            validityProof: createDummyProof()
         });
 
         // Create bounded settlement statement

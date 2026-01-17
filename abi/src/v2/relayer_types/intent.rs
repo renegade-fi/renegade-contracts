@@ -96,8 +96,12 @@ impl From<IDarkpoolV2::IntentPreMatchShare> for PreMatchIntentShare {
 #[cfg(feature = "v2-auth-helpers")]
 impl PublicIntentPermit {
     /// Create a signature for a public intent permit
-    pub fn sign(&self, signer: &PrivateKeySigner) -> Result<SignatureWithNonce, SignerError> {
+    pub fn sign(
+        &self,
+        chain_id: u64,
+        signer: &PrivateKeySigner,
+    ) -> Result<SignatureWithNonce, SignerError> {
         use crate::v2::auth_helpers::sign_with_nonce;
-        sign_with_nonce(self.abi_encode().as_slice(), signer)
+        sign_with_nonce(self.abi_encode().as_slice(), chain_id, signer)
     }
 }

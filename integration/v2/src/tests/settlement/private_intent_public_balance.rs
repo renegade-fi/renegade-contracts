@@ -67,10 +67,19 @@ async fn test_settlement__native_settled_private_intent(args: TestArgs) -> Resul
     // --- First Fill --- //
 
     // On the first fill, settle half of the obligations
-    let (mut state_intent0, settlement_bundle0) =
-        build_settlement_bundle_first_fill(&args.party0_signer(), &intent0, &first_obligation0)?;
-    let (mut state_intent1, settlement_bundle1) =
-        build_settlement_bundle_first_fill(&args.party1_signer(), &intent1, &first_obligation1)?;
+    let chain_id = args.chain_id().await?;
+    let (mut state_intent0, settlement_bundle0) = build_settlement_bundle_first_fill(
+        &args.party0_signer(),
+        &intent0,
+        &first_obligation0,
+        chain_id,
+    )?;
+    let (mut state_intent1, settlement_bundle1) = build_settlement_bundle_first_fill(
+        &args.party1_signer(),
+        &intent1,
+        &first_obligation1,
+        chain_id,
+    )?;
     let obligation_bundle = build_obligation_bundle(&first_obligation0, &first_obligation1);
 
     let party0_base_before = args.base_balance(args.party0_addr()).await?;
@@ -310,6 +319,7 @@ pub fn build_settlement_bundle_first_fill(
     owner: &PrivateKeySigner,
     intent: &Intent,
     obligation: &SettlementObligation,
+    chain_id: u64,
 ) -> Result<(DarkpoolStateIntent, SettlementBundle)> {
     // Generate proofs
     let (commitment, state_intent, validity_statement, validity_proof, validity_link_hint) =
@@ -319,8 +329,13 @@ pub fn build_settlement_bundle_first_fill(
     let linking_proof = generate_linking_proof(&validity_link_hint, &settlement_link_hint)?;
 
     // Build bundles
-    let auth_bundle =
-        build_auth_bundle_first_fill(owner, commitment, &validity_statement, &validity_proof)?;
+    let auth_bundle = build_auth_bundle_first_fill(
+        owner,
+        commitment,
+        chain_id,
+        &validity_statement,
+        &validity_proof,
+    )?;
     let settlement_bundle = SettlementBundle::private_intent_public_balance_first_fill(
         auth_bundle.clone(),
         settlement_statement.clone().into(),
@@ -358,13 +373,14 @@ pub fn build_settlement_bundle_subsequent_fill(
 pub(crate) fn build_auth_bundle_first_fill(
     owner: &PrivateKeySigner,
     commitment: Scalar,
+    chain_id: u64,
     validity_statement: &IntentOnlyFirstFillValidityStatement,
     validity_proof: &PlonkProof,
 ) -> Result<PrivateIntentAuthBundleFirstFill> {
     // Pass raw commitment bytes to sign_with_nonce which will hash them.
-    // This matches the Solidity: keccak256(keccak256(commitment) || nonce)
+    // This matches the Solidity: keccak256(keccak256(commitment) || nonce || chainId)
     let comm_u256 = scalar_to_u256(&commitment);
-    let signature = sign_with_nonce(&comm_u256.to_be_bytes_vec(), owner)?;
+    let signature = sign_with_nonce(&comm_u256.to_be_bytes_vec(), chain_id, owner)?;
 
     Ok(PrivateIntentAuthBundleFirstFill {
         intentSignature: signature,

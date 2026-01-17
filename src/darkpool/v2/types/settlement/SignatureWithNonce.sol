@@ -11,7 +11,7 @@ import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.so
 /// - s in the next 32 bytes
 /// - v in the last byte
 /// @dev We further assume that the signature is over the following:
-/// H(H(message) || nonce)
+/// H(H(message) || nonce || chainId)
 struct SignatureWithNonce {
     /// @dev The nonce of the signature
     uint256 nonce;
@@ -31,7 +31,7 @@ library SignatureWithNonceLib {
     /// @param digest The bytes32 digest of the message to verify
     /// @param state The darkpool state to spend the nonce in
     /// @return Whether the signature is valid
-    /// @dev Verifies the signature over H(digest || nonce) and always spends the nonce to prevent replay
+    /// @dev Verifies the signature over H(digest || nonce || chainId) and always spends the nonce to prevent replay
     function verifyPrehashedAndSpendNonce(
         SignatureWithNonce memory signature,
         address expectedSigner,
@@ -45,7 +45,7 @@ library SignatureWithNonceLib {
         state.spendNonce(signature.nonce);
 
         // Verify the signature
-        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(signature.nonce));
+        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(signature.nonce), bytes32(block.chainid));
         return ECDSALib.verify(signatureHash, signature.signature, expectedSigner);
     }
 }

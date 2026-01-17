@@ -49,7 +49,7 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
         // Sign with the private key
         uint256 nonce = randomUint();
         bytes32 permitHash = permit.computeHash();
-        bytes32 signatureDigest = EfficientHashLib.hash(permitHash, bytes32(nonce));
+        bytes32 signatureDigest = EfficientHashLib.hash(permitHash, bytes32(nonce), bytes32(block.chainid));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
@@ -83,7 +83,7 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
 
         // Sign with the private key
         uint256 nonce = randomUint();
-        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(nonce));
+        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(nonce), bytes32(block.chainid));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureHash);
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }

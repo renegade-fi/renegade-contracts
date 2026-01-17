@@ -222,7 +222,7 @@ library ExternalTransferLib {
 
         // 2. Verify the signature over the new balance commitment by the owner
         // The `withdrawal.to` address is constrained to be the owner of the balance in-circuit
-        bytes32 withdrawalHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment));
+        bytes32 withdrawalHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment), block.chainid);
         bool sigValid = ECDSALib.verify(withdrawalHash, auth.signature, withdrawal.to);
         if (!sigValid) revert InvalidWithdrawalSignature();
 

@@ -55,12 +55,12 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
         internal
         returns (SignatureWithNonce memory)
     {
-        // Hash the intent and authorizing address commitment with a random nonce
+        // Hash the intent and authorizing address commitment with a random nonce and chainId
         // This matches getOwnerSignatureDigest which hashes the single commitment
         uint256 nonce = randomUint();
         uint256 commitment = BN254.ScalarField.unwrap(intentAndAuthorizingAddressCommitment);
         bytes32 digest = EfficientHashLib.hash(commitment);
-        bytes32 signatureDigest = EfficientHashLib.hash(digest, bytes32(nonce));
+        bytes32 signatureDigest = EfficientHashLib.hash(digest, bytes32(nonce), bytes32(block.chainid));
 
         // Sign with the private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
@@ -77,11 +77,15 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
         returns (IntentAndBalanceBoundedSettlementStatement memory statement)
     {
         PostMatchBalanceShare memory inBalancePublicShares = PostMatchBalanceShare({
-            relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
         });
 
         PostMatchBalanceShare memory outBalancePublicShares = PostMatchBalanceShare({
-            relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
         });
 
         statement = IntentAndBalanceBoundedSettlementStatement({
@@ -100,7 +104,10 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
     /// @dev Create a dummy intent and balance validity statement (first fill)
     function createSampleStatementFirstFill() internal returns (IntentAndBalanceValidityStatementFirstFill memory) {
         IntentPreMatchShare memory intentPublicShare = IntentPreMatchShare({
-            inToken: randomScalar(), outToken: randomScalar(), owner: randomScalar(), minPrice: randomScalar()
+            inToken: randomScalar(),
+            outToken: randomScalar(),
+            owner: randomScalar(),
+            minPrice: randomScalar()
         });
 
         BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
@@ -183,7 +190,9 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
 
         // Create auth bundle
         RenegadeSettledIntentAuthBundleFirstFill memory auth = RenegadeSettledIntentAuthBundleFirstFill({
-            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
+            merkleDepth: merkleDepth,
+            statement: validityStatement,
+            validityProof: createDummyProof()
         });
 
         // Create bounded settlement statement
@@ -204,7 +213,9 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
 
         // Encode and return the settlement bundle
         return SettlementBundle({
-            isFirstFill: true, bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT, data: abi.encode(bundleData)
+            isFirstFill: true,
+            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
+            data: abi.encode(bundleData)
         });
     }
 
@@ -224,7 +235,9 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
 
         // Create auth bundle (no signature needed for subsequent fills)
         RenegadeSettledIntentAuthBundle memory auth = RenegadeSettledIntentAuthBundle({
-            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
+            merkleDepth: merkleDepth,
+            statement: validityStatement,
+            validityProof: createDummyProof()
         });
 
         // Create bounded settlement statement
@@ -245,7 +258,9 @@ contract RenegadeSettledBoundedPrivateIntentTestUtils is ExternalMatchTestUtils 
 
         // Encode and return the settlement bundle
         return SettlementBundle({
-            isFirstFill: false, bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT, data: abi.encode(bundleData)
+            isFirstFill: false,
+            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
+            data: abi.encode(bundleData)
         });
     }
 }

@@ -76,7 +76,7 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         uint256 nonce = randomUint();
         bytes32 intentCommitmentBytes = bytes32(BN254.ScalarField.unwrap(intentCommitment));
         bytes32 commitmentHash = EfficientHashLib.hash(abi.encode(intentCommitmentBytes));
-        bytes32 signatureDigest = EfficientHashLib.hash(commitmentHash, bytes32(nonce));
+        bytes32 signatureDigest = EfficientHashLib.hash(commitmentHash, bytes32(nonce), bytes32(block.chainid));
 
         // Sign with the private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
@@ -116,7 +116,9 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         returns (IntentOnlyPublicSettlementStatement memory)
     {
         return IntentOnlyPublicSettlementStatement({
-            obligation: obligation, relayerFee: relayerFeeRateFixedPoint, relayerFeeRecipient: relayerFeeAddr
+            obligation: obligation,
+            relayerFee: relayerFeeRateFixedPoint,
+            relayerFeeRecipient: relayerFeeAddr
         });
     }
 
@@ -219,7 +221,9 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
 
         // Create auth bundle
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({
-            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
+            merkleDepth: merkleDepth,
+            statement: validityStatement,
+            validityProof: createDummyProof()
         });
         PrivateIntentPublicBalanceBundle memory bundleData = PrivateIntentPublicBalanceBundle({
             auth: auth,

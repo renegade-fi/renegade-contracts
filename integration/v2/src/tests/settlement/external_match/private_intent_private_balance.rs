@@ -21,6 +21,7 @@ use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::{
     OutputBalanceBundle, RenegadeSettledIntentAuthBundle, SettlementBundle,
 };
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
@@ -30,7 +31,6 @@ use renegade_circuits::{
         IntentAndBalanceBoundedSettlementWitness,
     },
 };
-use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::MERKLE_HEIGHT;
 use renegade_darkpool_types::{
     balance::{DarkpoolStateBalance, PostMatchBalanceShare},
@@ -60,7 +60,8 @@ async fn test_bounded_settlement__private_intent_private_balance(args: TestArgs)
     // --- First Fill --- //
 
     // Build match result bundle
-    let bounded_match_result_bundle = build_match_result_bundle(&bounded_match_result, &args)?;
+    let bounded_match_result_bundle =
+        build_match_result_bundle(&bounded_match_result, &args).await?;
     let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result_bundle);
     let (internal_obligation, external_obligation) =
         create_obligations(&bounded_match_result_bundle, external_party_amt_in);
@@ -143,7 +144,8 @@ async fn test_bounded_settlement__private_intent_private_balance(args: TestArgs)
         create_bounded_match_result_with_balance(&state_intent.inner, remaining_balance);
 
     // Build match result bundle for second fill and pick external amount upfront
-    let bounded_match_result_bundle2 = build_match_result_bundle(&bounded_match_result2, &args)?;
+    let bounded_match_result_bundle2 =
+        build_match_result_bundle(&bounded_match_result2, &args).await?;
     let external_party_amt_in2 = pick_external_party_amt_in(&bounded_match_result_bundle2);
     let (internal_obligation2, external_obligation2) =
         create_obligations(&bounded_match_result_bundle2, external_party_amt_in2);

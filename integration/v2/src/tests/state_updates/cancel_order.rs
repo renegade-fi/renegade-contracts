@@ -29,8 +29,9 @@ async fn test_cancel_order(args: TestArgs) -> Result<()> {
     let elements = setup_private_intent_private_balance(&args).await?;
 
     // Submit a cancellation transaction
+    let chain_id = args.chain_id().await?;
     let (auth, bundle) =
-        generate_cancellation_bundle(&elements.intent, &elements.intent_opening, &args)?;
+        generate_cancellation_bundle(&elements.intent, &elements.intent_opening, chain_id, &args)?;
     let tx = args.darkpool.cancelPrivateOrder(auth, bundle);
     wait_for_tx_success(tx).await?;
 
@@ -52,9 +53,10 @@ integration_test_async!(test_cancel_order);
 pub fn generate_cancellation_bundle(
     intent: &DarkpoolStateIntent,
     intent_opening: &MerkleAuthenticationPath,
+    chain_id: u64,
     args: &TestArgs,
 ) -> Result<(OrderCancellationAuth, OrderCancellationProofBundle)> {
-    let auth = create_auth_bundle(intent, args)?;
+    let auth = create_auth_bundle(intent, chain_id, args)?;
 
     let (statement, proof) = generate_cancellation_proof(intent, intent_opening)?;
     let bundle = OrderCancellationProofBundle::new(statement, proof);
@@ -65,10 +67,11 @@ pub fn generate_cancellation_bundle(
 /// Create an auth bundle for cancelling an order
 fn create_auth_bundle(
     intent: &DarkpoolStateIntent,
+    chain_id: u64,
     args: &TestArgs,
 ) -> Result<OrderCancellationAuth> {
     let nullifier = intent.compute_nullifier();
-    let signature = sign_with_nonce(&nullifier.to_bytes_be(), &args.party0_signer())?;
+    let signature = sign_with_nonce(&nullifier.to_bytes_be(), chain_id, &args.party0_signer())?;
 
     Ok(OrderCancellationAuth { signature })
 }
