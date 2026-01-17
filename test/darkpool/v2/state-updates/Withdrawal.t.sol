@@ -72,7 +72,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     {
         // Sign the new balance commitment
         // The signature must be from the owner (withdrawal.to address)
-        bytes32 commitmentHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment));
+        bytes32 commitmentHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment), block.chainid);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(balanceOwner.privateKey, commitmentHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -82,7 +82,10 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     /// @notice Create a withdrawal proof bundle for testing
     /// @param withdrawal The withdrawal struct
     /// @return proofBundle The withdrawal proof bundle
-    function createWithdrawalProofBundle(Withdrawal memory withdrawal) internal returns (WithdrawalProofBundle memory) {
+    function createWithdrawalProofBundle(Withdrawal memory withdrawal)
+        internal
+        returns (WithdrawalProofBundle memory)
+    {
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         BN254.ScalarField oldBalanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();
