@@ -19,6 +19,7 @@ import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMat
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
+import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { PublicIntentPermit } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
@@ -147,6 +148,10 @@ interface IDarkpoolV2 {
     /// @param orderHash The hash of the cancelled order
     /// @param owner The owner who cancelled the order
     event PublicOrderCancelled(bytes32 indexed orderHash, address indexed owner);
+    /// @notice Emitted when a nonce is revoked
+    /// @param revokedNonce The nonce that was revoked
+    /// @param owner The owner who revoked the nonce
+    event NonceRevoked(uint256 indexed revokedNonce, address indexed owner);
 
     // --- Admin Events --- //
 
@@ -266,6 +271,15 @@ interface IDarkpoolV2 {
     /// @param auth The authorization for the order cancellation
     /// @param permit The public intent permit identifying the intent to cancel
     function cancelPublicOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) external;
+
+    /// @notice Revoke a nonce to invalidate previously signed bundles
+    /// @dev This allows users to proactively invalidate signed bundles (e.g., first-fill bundles) that they've
+    /// given to relayers but haven't been submitted yet. The owner must sign H("revoke" || nonceToRevoke) with
+    /// a nonce for replay protection.
+    /// @param owner The owner who is revoking the nonce
+    /// @param nonceToRevoke The nonce to revoke
+    /// @param signature The signature over the revoke digest (with nonce for replay protection)
+    function revokeNonce(address owner, uint256 nonceToRevoke, SignatureWithNonce memory signature) external;
 
     /// @notice Pay protocol fees publicly on a balance
     /// @param proofBundle The proof bundle for the public protocol fee payment
