@@ -83,7 +83,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     /// @param withdrawal The withdrawal struct
     /// @return proofBundle The withdrawal proof bundle
     function createWithdrawalProofBundle(Withdrawal memory withdrawal) internal returns (WithdrawalProofBundle memory) {
-        BN254.ScalarField merkleRoot = randomScalar();
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         BN254.ScalarField oldBalanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();
         BN254.ScalarField recoveryId = randomScalar();

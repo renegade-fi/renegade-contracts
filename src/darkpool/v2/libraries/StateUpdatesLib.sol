@@ -62,7 +62,11 @@ library StateUpdatesLib {
         bool valid = verifier.verifyOrderCancellationValidity(orderCancellationProofBundle);
         if (!valid) revert IDarkpoolV2.OrderCancellationVerificationFailed();
 
-        // 2. Verify the signature over the intent nullifier by the owner (with nonce for replay protection)
+        // 2. Verify that the Merkle root is in the history
+        BN254.ScalarField merkleRoot = orderCancellationProofBundle.statement.merkleRoot;
+        state.assertRootInHistory(merkleRoot);
+
+        // 3. Verify the signature over the intent nullifier by the owner (with nonce for replay protection)
         address owner = orderCancellationProofBundle.statement.owner;
         BN254.ScalarField intentNullifier = orderCancellationProofBundle.statement.oldIntentNullifier;
         bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
@@ -70,7 +74,7 @@ library StateUpdatesLib {
         bool sigValid = auth.signature.verifyPrehashedAndSpendNonce(owner, nullifierHash, state);
         if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
 
-        // 3. Spend the nullifier to cancel the order
+        // 4. Spend the nullifier to cancel the order
         state.spendNullifier(intentNullifier);
     }
 
@@ -128,12 +132,16 @@ library StateUpdatesLib {
         bool valid = verifier.verifyExistingBalanceDepositValidity(depositProofBundle);
         if (!valid) revert IDarkpoolV2.DepositVerificationFailed();
 
-        // 2. Execute the deposit
+        // 2. Verify that the Merkle root is in the history
+        BN254.ScalarField merkleRoot = depositProofBundle.statement.merkleRoot;
+        state.assertRootInHistory(merkleRoot);
+
+        // 3. Execute the deposit
         Deposit memory depositInfo = depositProofBundle.statement.deposit;
         BN254.ScalarField newBalanceCommitment = depositProofBundle.statement.newBalanceCommitment;
         ExternalTransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
 
-        // 3. Update the state; nullify the previous balance and insert the new balance
+        // 4. Update the state; nullify the previous balance and insert the new balance
         uint256 merkleDepth = depositProofBundle.merkleDepth;
         BN254.ScalarField balanceNullifier = depositProofBundle.statement.oldBalanceNullifier;
         state.spendNullifier(balanceNullifier);
@@ -198,12 +206,16 @@ library StateUpdatesLib {
         bool valid = verifier.verifyWithdrawalValidity(withdrawalProofBundle);
         if (!valid) revert IDarkpoolV2.WithdrawalVerificationFailed();
 
-        // 2. Execute the withdrawal
+        // 2. Verify that the Merkle root is in the history
+        BN254.ScalarField merkleRoot = withdrawalProofBundle.statement.merkleRoot;
+        state.assertRootInHistory(merkleRoot);
+
+        // 3. Execute the withdrawal
         Withdrawal memory withdrawal = withdrawalProofBundle.statement.withdrawal;
         BN254.ScalarField newBalanceCommitment = withdrawalProofBundle.statement.newBalanceCommitment;
         ExternalTransferLib.executeSignedWithdrawal(newBalanceCommitment, auth, withdrawal);
 
-        // 3. Update the state; nullify the previous balance and insert the new balance
+        // 4. Update the state; nullify the previous balance and insert the new balance
         uint256 merkleDepth = withdrawalProofBundle.merkleDepth;
         BN254.ScalarField balanceNullifier = withdrawalProofBundle.statement.oldBalanceNullifier;
         state.spendNullifier(balanceNullifier);
