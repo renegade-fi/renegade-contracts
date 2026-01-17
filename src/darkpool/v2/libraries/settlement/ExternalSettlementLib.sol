@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
-import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import {
     SettlementBundle,
     SettlementBundleType,
@@ -52,6 +52,15 @@ library ExternalSettlementLib {
     {
         // Validate the bounded match result
         BoundedMatchResultLib.validateBoundedMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
+
+        // Validate that tokens are whitelisted
+        BoundedMatchResult calldata boundedMatchResult = matchBundle.permit.matchResult;
+        if (!state.isTokenWhitelisted(boundedMatchResult.internalPartyInputToken)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(boundedMatchResult.internalPartyInputToken);
+        }
+        if (!state.isTokenWhitelisted(boundedMatchResult.internalPartyOutputToken)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(boundedMatchResult.internalPartyOutputToken);
+        }
 
         // Allocate a settlement context
         SettlementContext memory settlementContext = allocateExternalSettlementContext(internalPartySettlementBundle);

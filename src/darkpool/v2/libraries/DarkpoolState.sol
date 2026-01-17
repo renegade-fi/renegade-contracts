@@ -35,6 +35,9 @@ struct DarkpoolState {
     /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
     /// @dev Key is keccak256(abi.encodePacked(token0, token1)) where token0 < token1
     mapping(bytes32 => FixedPoint) perPairFeeOverrides;
+    /// @notice Mapping of whitelisted ERC20 tokens
+    /// @dev Only whitelisted tokens can be deposited or used in matches
+    mapping(address => bool) whitelistedTokens;
     /// @notice The Merkle mountain range for state element commitments
     MerkleMountainLib.MerkleMountainRange merkleMountainRange;
     /// @notice The nullifier set for the darkpool
@@ -160,6 +163,14 @@ library DarkpoolStateLib {
         return FeeRate({ rate: rate, recipient: state.protocolFeeRecipient });
     }
 
+    /// @notice Check if a token is whitelisted
+    /// @param state The darkpool state
+    /// @param token The token address to check
+    /// @return Whether the token is whitelisted
+    function isTokenWhitelisted(DarkpoolState storage state, address token) internal view returns (bool) {
+        return state.whitelistedTokens[token];
+    }
+
     // --- Setters --- //
 
     /// @notice Set the amount remaining for an open public intent
@@ -207,6 +218,14 @@ library DarkpoolStateLib {
     {
         bytes32 pairKey = _getPairKey(asset0, asset1);
         state.perPairFeeOverrides[pairKey] = feeRate;
+    }
+
+    /// @notice Set the whitelist status for a token
+    /// @param state The darkpool state
+    /// @param token The token address to set whitelist status for
+    /// @param whitelisted Whether the token should be whitelisted
+    function setTokenWhitelist(DarkpoolState storage state, address token, bool whitelisted) internal {
+        state.whitelistedTokens[token] = whitelisted;
     }
 
     /// @notice Spend a nullifier

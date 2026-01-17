@@ -136,12 +136,17 @@ library StateUpdatesLib {
         BN254.ScalarField merkleRoot = depositProofBundle.statement.merkleRoot;
         state.assertRootInHistory(merkleRoot);
 
-        // 3. Execute the deposit
+        // 3. Validate that the token is whitelisted
         Deposit memory depositInfo = depositProofBundle.statement.deposit;
+        if (!state.isTokenWhitelisted(depositInfo.token)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(depositInfo.token);
+        }
+
+        // 4. Execute the deposit
         BN254.ScalarField newBalanceCommitment = depositProofBundle.statement.newBalanceCommitment;
         ExternalTransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
 
-        // 4. Update the state; nullify the previous balance and insert the new balance
+        // 5. Update the state; nullify the previous balance and insert the new balance
         uint256 merkleDepth = depositProofBundle.merkleDepth;
         BN254.ScalarField balanceNullifier = depositProofBundle.statement.oldBalanceNullifier;
         state.spendNullifier(balanceNullifier);
@@ -172,12 +177,17 @@ library StateUpdatesLib {
         bool valid = verifier.verifyNewBalanceDepositValidity(newBalanceProofBundle);
         if (!valid) revert IDarkpoolV2.DepositVerificationFailed();
 
-        // 2. Execute the deposit
+        // 2. Validate that the token is whitelisted
         Deposit memory depositInfo = newBalanceProofBundle.statement.deposit;
+        if (!state.isTokenWhitelisted(depositInfo.token)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(depositInfo.token);
+        }
+
+        // 3. Execute the deposit
         BN254.ScalarField newBalanceCommitment = newBalanceProofBundle.statement.newBalanceCommitment;
         ExternalTransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
 
-        // 3. Update the state; insert the new balance
+        // 4. Update the state; insert the new balance
         uint256 merkleDepth = newBalanceProofBundle.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
