@@ -66,6 +66,8 @@ interface IDarkpoolV2 {
     error OrderCancellationVerificationFailed();
     /// @notice Thrown when the order cancellation signature is invalid
     error InvalidOrderCancellationSignature();
+    /// @notice Thrown when a public order has already been cancelled or fully filled
+    error PublicOrderAlreadyCancelled();
     /// @notice Thrown when the obligation types are not compatible
     error IncompatibleObligationTypes();
     /// @notice Thrown when the obligation tokens are not compatible
@@ -266,11 +268,18 @@ interface IDarkpoolV2 {
         external;
 
     /// @notice Cancel a public intent in the darkpool
-    /// @dev This cancels a public intent by zeroing its entry in the openPublicIntents mapping.
-    /// @dev The owner must sign H("cancel" || intentHash) with a nonce for replay protection.
+    /// @dev This cancels a public intent by spending its nullifier and zeroing its amountRemaining.
+    /// @dev The nullifier is computed as H(intentHash || intentSignature.nonce).
+    /// @dev The owner must sign H("cancel" || intentNullifier) with a nonce for replay protection.
     /// @param auth The authorization for the order cancellation
     /// @param permit The public intent permit identifying the intent to cancel
-    function cancelPublicOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) external;
+    /// @param intentSignature The original signature used to authorize the intent
+    function cancelPublicOrder(
+        OrderCancellationAuth memory auth,
+        PublicIntentPermit calldata permit,
+        SignatureWithNonce calldata intentSignature
+    )
+        external;
 
     /// @notice Revoke a nonce to invalidate previously signed bundles
     /// @dev This allows users to proactively invalidate signed bundles (e.g., first-fill bundles) that they've

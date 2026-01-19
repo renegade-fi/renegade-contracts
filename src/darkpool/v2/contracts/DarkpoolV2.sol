@@ -197,8 +197,14 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     }
 
     /// @inheritdoc IDarkpoolV2
-    function cancelPublicOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) public {
-        StateUpdatesLib.cancelPublicOrder(_state, auth, permit);
+    function cancelPublicOrder(
+        OrderCancellationAuth memory auth,
+        PublicIntentPermit calldata permit,
+        SignatureWithNonce calldata intentSignature
+    )
+        public
+    {
+        StateUpdatesLib.cancelPublicOrder(_state, auth, permit, intentSignature);
     }
 
     /// @inheritdoc IDarkpoolV2

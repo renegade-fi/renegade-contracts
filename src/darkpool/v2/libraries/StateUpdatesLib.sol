@@ -79,33 +79,44 @@ library StateUpdatesLib {
     }
 
     /// @notice Cancel a public intent
-    /// @dev This cancels a public intent by zeroing its entry in the openPublicIntents mapping.
-    /// @dev User signs H("cancel" || intentHash) where intentHash is the hash of the permit.
+    /// @dev This cancels a public intent by spending its nullifier and zeroing its amountRemaining.
+    /// @dev User signs H("cancel" || intentNullifier) for the cancellation.
     /// @param state The darkpool state containing all storage references
     /// @param auth The authorization for the order cancellation
     /// @param permit The public intent permit identifying the intent to cancel
+    /// @param intentSignature The original signature used to authorize the intent (contains the nonce
+    /// needed to compute the nullifier)
     function cancelPublicOrder(
         DarkpoolState storage state,
         OrderCancellationAuth calldata auth,
-        PublicIntentPermit calldata permit
+        PublicIntentPermit calldata permit,
+        SignatureWithNonce calldata intentSignature
     )
         external
     {
-        // 1. Compute the intent hash
+        // 1. Compute the intent hash and nullifier
         bytes32 intentHash = permit.computeHash();
+        BN254.ScalarField intentNullifier = PublicIntentPermitLib.computeNullifier(intentHash, intentSignature.nonce);
 
-        // 2. Compute the cancel digest with domain separation: H("cancel" || intentHash)
-        bytes32 cancelDigest = keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, intentHash));
+        // 2. Compute the cancel digest with domain separation: H("cancel" || intentNullifier)
+        bytes32 cancelDigest =
+            keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, BN254.ScalarField.unwrap(intentNullifier)));
 
         // 3. Verify the signature over the cancel digest by the owner (with nonce for replay protection)
         address owner = permit.intent.owner;
         bool sigValid = auth.signature.verifyPrehashedAndSpendNonce(owner, cancelDigest, state);
         if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
 
-        // 4. Cancel the intent by setting the amount remaining to 0
+        // 4. Spend the nullifier to prevent future fills with this intent+nonce combination
+        // Check first to allow idempotent cancellation (retry safety)
+        if (!state.isNullifierSpent(intentNullifier)) {
+            state.spendNullifier(intentNullifier);
+        }
+
+        // 5. Zero out the amount remaining (no-op pre-fill, actual effect post-fill)
         state.setOpenIntentAmountRemaining(intentHash, 0);
 
-        // 5. Emit cancellation event
+        // 6. Emit cancellation event
         emit IDarkpoolV2.PublicOrderCancelled(intentHash, owner);
     }
 
