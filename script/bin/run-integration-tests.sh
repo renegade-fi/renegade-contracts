@@ -97,7 +97,8 @@ if ! forge script script/$VERSION/DeployDev.s.sol \
     --ffi \
     --rpc-url http://localhost:8545 \
     --private-key $ANVIL_PKEY \
-    --broadcast; then
+    --broadcast \
+    --slow; then
     echo "Forge script failed. Cleaning up and exiting..."
     exit 1
 fi
