@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {
-    BoundedMatchResultBundle,
-    BoundedMatchResultPermit,
-    BoundedMatchResultPermitLib
-} from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
-import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import {
     PartyId,
     PublicIntentPublicBalanceBundle,
@@ -44,7 +40,6 @@ library NativeSettledPublicIntentLib {
     using ObligationLib for ObligationBundle;
     using SettlementObligationLib for SettlementObligation;
     using PublicIntentPermitLib for PublicIntentPermit;
-    using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
     using FeeRateLib for FeeRate;
@@ -111,8 +106,8 @@ library NativeSettledPublicIntentLib {
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
             BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Verify that the executor has signed the bounded match result
-        validateBoundedMatchResultAuthorization(bundleData, matchBundle, state);
+        // Verify that the executor has signed the bounded match result (including fee)
+        validateBoundedMatchResultAuthorization(bundleData, matchBundle.permit.matchResult, state);
 
         executeInner(bundleData, internalObligation, settlementContext, state);
 
@@ -223,25 +218,24 @@ library NativeSettledPublicIntentLib {
     // -------------------------------
 
     /// @notice Validate the authorization of a bounded match result
-    /// @dev We require that the executor signed the bounded match result, which authorizes any obligations derived from
-    /// the match result to be settled.
+    /// @dev We require that the executor signed (relayerFeeRate, boundedMatchResult), which authorizes any obligations
+    /// derived from the match result to be settled at the specified fee rate.
     /// @param bundleData The auth bundle data to validate
-    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param matchResult The bounded match result to validate
     /// @param state The darkpool state containing all storage references
     function validateBoundedMatchResultAuthorization(
         PublicIntentPublicBalanceBundle memory bundleData,
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         DarkpoolState storage state
     )
         internal
     {
         PublicIntentAuthBundle memory auth = bundleData.auth;
-        BoundedMatchResultPermit memory permit = matchBundle.permit;
 
-        // Verify that the executor has signed the bounded match result
-        bytes32 matchResultHash = permit.computeHash();
-        bool executorValid = matchBundle.executorSignature
-            .verifyPrehashedAndSpendNonce(auth.intentPermit.executor, matchResultHash, state);
+        // Verify that the executor has signed (relayerFeeRate, boundedMatchResult)
+        bytes32 executorDigest = bundleData.computeBoundedMatchExecutorDigest(matchResult);
+        bool executorValid =
+            auth.executorSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.executor, executorDigest, state);
         if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
     }
 

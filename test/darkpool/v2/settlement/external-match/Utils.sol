@@ -6,17 +6,16 @@ import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import {
     BoundedMatchResultPermit,
-    BoundedMatchResultBundle,
-    BoundedMatchResultPermitLib
+    BoundedMatchResultBundle
 } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 
 contract ExternalMatchTestUtils is SettlementTestUtils {
     using BoundedMatchResultLib for BoundedMatchResult;
-    using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
     using FixedPointLib for FixedPoint;
 
     // ---------
@@ -25,20 +24,38 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
 
     // --- Bounded Match Result --- //
 
-    /// @dev Sign a bounded match result
-    function signMatchResult(
-        BoundedMatchResultPermit memory permit,
+    /// @dev Create executor signature for bounded match
+    /// @param feeRate The relayer fee rate
+    /// @param matchResult The bounded match result
+    /// @param signerPrivateKey The private key to sign with
+    /// @return The executor signature
+    function createBoundedMatchExecutorSignature(
+        FeeRate memory feeRate,
+        BoundedMatchResult memory matchResult,
         uint256 signerPrivateKey
     )
         internal
         returns (SignatureWithNonce memory)
     {
-        // Sign with the private key
-        uint256 nonce = randomUint();
-        bytes32 matchResultHash = permit.computeHash();
-        bytes32 signatureDigest = EfficientHashLib.hash(matchResultHash, bytes32(nonce), bytes32(block.chainid));
+        // Use the calldata version via external call for memory-to-calldata conversion
+        return this._createBoundedMatchExecutorSignatureCalldata(feeRate, matchResult, signerPrivateKey);
+    }
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
+    /// @dev Create executor signature for bounded match (calldata version)
+    function _createBoundedMatchExecutorSignatureCalldata(
+        FeeRate memory feeRate,
+        BoundedMatchResult calldata matchResult,
+        uint256 signerPrivateKey
+    )
+        external
+        returns (SignatureWithNonce memory)
+    {
+        bytes memory encoded = abi.encode(feeRate, matchResult);
+        bytes32 digest = EfficientHashLib.hash(encoded);
+
+        uint256 nonce = randomUint();
+        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(nonce), bytes32(block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureHash);
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
@@ -69,23 +86,16 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
         return matchResult;
     }
 
-    /// @dev Create a bounded match result authorization bundle with custom signers
-    /// @param matchResult The bounded match result to create the authorization bundle for
-    /// @param executorPrivateKey The private key of the executor
-    /// @return matchBundle The bounded match result authorization bundle
-    function createBoundedMatchResultBundleWithSigners(
-        BoundedMatchResult memory matchResult,
-        uint256 executorPrivateKey
-    )
+    /// @dev Create a bounded match result bundle
+    /// @param matchResult The bounded match result
+    /// @return matchBundle The bounded match result bundle
+    function createBoundedMatchResultBundle(BoundedMatchResult memory matchResult)
         internal
+        pure
         returns (BoundedMatchResultBundle memory)
     {
-        // Create the permit and sign it with the executor's key
         BoundedMatchResultPermit memory permit = BoundedMatchResultPermit({ matchResult: matchResult });
-        SignatureWithNonce memory matchResultSignature = signMatchResult(permit, executorPrivateKey);
-
-        // Create auth bundle
-        return BoundedMatchResultBundle({ permit: permit, executorSignature: matchResultSignature });
+        return BoundedMatchResultBundle({ permit: permit });
     }
 
     // --- External Match Helpers --- //
