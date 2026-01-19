@@ -4,10 +4,6 @@ pragma solidity ^0.8.24;
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
-import {
-    BoundedMatchResultPermit,
-    BoundedMatchResultBundle
-} from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -84,18 +80,6 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
         });
 
         return matchResult;
-    }
-
-    /// @dev Create a bounded match result bundle
-    /// @param matchResult The bounded match result
-    /// @return matchBundle The bounded match result bundle
-    function createBoundedMatchResultBundle(BoundedMatchResult memory matchResult)
-        internal
-        pure
-        returns (BoundedMatchResultBundle memory)
-    {
-        BoundedMatchResultPermit memory permit = BoundedMatchResultPermit({ matchResult: matchResult });
-        return BoundedMatchResultBundle({ permit: permit });
     }
 
     // --- External Match Helpers --- //

@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FeeTake } from "darkpoolv2-types/Fee.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -30,7 +30,7 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
             PublicIntentPermit memory internalPartyPermit,
             SettlementObligation memory internalPartyObligation,
             SettlementObligation memory externalPartyObligation,
-            BoundedMatchResultBundle memory matchBundle,
+            BoundedMatchResult memory matchResult,
             SettlementBundle memory internalPartySettlementBundle
         )
     {
@@ -52,11 +52,11 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
         internalPartyPermit = PublicIntentPermit({ intent: internalPartyIntent, executor: executor.addr });
 
         // Create bounded match result bundle
-        matchBundle = createBoundedMatchResultBundleForObligation(internalPartyObligation, price);
+        matchResult = createBoundedMatchResultForObligation(internalPartyObligation, price);
 
         // Create settlement bundle with executor signature over (feeRate, matchResult)
         internalPartySettlementBundle = createBoundedMatchSettlementBundleWithSigners(
-            internalPartyIntent, matchBundle.permit.matchResult, internalParty.privateKey, executor.privateKey
+            internalPartyIntent, matchResult, internalParty.privateKey, executor.privateKey
         );
 
         // Capitalize the parties for their obligations
@@ -75,16 +75,16 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
             PublicIntentPermit memory internalPartyPermit,
             SettlementObligation memory internalPartyObligation,
             SettlementObligation memory externalPartyObligation,
-            BoundedMatchResultBundle memory matchBundle,
+            BoundedMatchResult memory matchResult,
             SettlementBundle memory internalPartySettlementBundle
         ) = _createMatchData();
 
         // Choose a trade size and build the actual obligations that will be used in settlement
         (uint256 externalPartyAmountIn, uint256 externalPartyAmountOut) =
-            randomExternalPartyAmountIn(externalPartyObligation, matchBundle.permit.matchResult.price);
+            randomExternalPartyAmountIn(externalPartyObligation, matchResult.price);
         address recipient = externalParty.addr;
         (SettlementObligation memory actualExternalObligation, SettlementObligation memory actualInternalObligation) =
-            buildObligationsFromMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
+            buildObligationsFromMatchResult(matchResult, externalPartyAmountIn);
 
         // Compute fees that will be deducted from both parties' outputs
         (FeeTake memory internalRelayerFee, FeeTake memory internalProtocolFee) =
@@ -110,7 +110,7 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
         // Check balances before and after settlement
         BalanceSnapshots memory preMatch = _captureBalances();
         vm.prank(externalParty.addr);
-        darkpool.settleExternalMatch(externalPartyAmountIn, recipient, matchBundle, internalPartySettlementBundle);
+        darkpool.settleExternalMatch(externalPartyAmountIn, recipient, matchResult, internalPartySettlementBundle);
         BalanceSnapshots memory postMatch = _captureBalances();
         _verifyBalanceChanges(preMatch, postMatch, expectedDifferences);
 

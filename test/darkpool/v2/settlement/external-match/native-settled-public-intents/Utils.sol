@@ -16,7 +16,6 @@ import {
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
@@ -123,23 +122,6 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
     }
 
     // --- Bounded Match Result --- //
-
-    /// @dev Create a bounded match result bundle for a given obligation
-    /// @param obligation The obligation to create the bounded match result for
-    /// @param price The price of the obligation (inToken/outToken)
-    /// @return matchBundle The bounded match result bundle
-    function createBoundedMatchResultBundleForObligation(
-        SettlementObligation memory obligation,
-        FixedPoint memory price
-    )
-        internal
-        view
-        returns (BoundedMatchResultBundle memory)
-    {
-        BoundedMatchResult memory matchResult = createBoundedMatchResultForObligation(obligation, price);
-        return createBoundedMatchResultBundle(matchResult);
-    }
-
     /// @dev Create a settlement bundle for bounded match with custom signers
     /// @param intent The intent to create the settlement bundle for
     /// @param matchResult The bounded match result
