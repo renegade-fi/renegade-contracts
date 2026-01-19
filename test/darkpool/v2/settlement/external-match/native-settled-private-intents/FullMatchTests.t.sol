@@ -37,7 +37,7 @@ contract FullMatchTests is BoundedPrivateIntentTestUtils {
 
         // Create bounded match result and bundle
         BoundedMatchResult memory matchResult = createBoundedMatchResultForObligation(internalPartyObligation, price);
-        matchBundle = createBoundedMatchResultBundleWithSigners(matchResult, executor.privateKey);
+        matchBundle = createBoundedMatchResultBundle(matchResult);
 
         // Create the internal party settlement bundle
         internalPartySettlementBundle =

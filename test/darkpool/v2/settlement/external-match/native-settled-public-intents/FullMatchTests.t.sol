@@ -30,7 +30,8 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
             PublicIntentPermit memory internalPartyPermit,
             SettlementObligation memory internalPartyObligation,
             SettlementObligation memory externalPartyObligation,
-            BoundedMatchResultBundle memory matchBundle
+            BoundedMatchResultBundle memory matchBundle,
+            SettlementBundle memory internalPartySettlementBundle
         )
     {
         // Create obligations for the trade
@@ -53,6 +54,11 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
         // Create bounded match result bundle
         matchBundle = createBoundedMatchResultBundleForObligation(internalPartyObligation, price);
 
+        // Create settlement bundle with executor signature over (feeRate, matchResult)
+        internalPartySettlementBundle = createBoundedMatchSettlementBundleWithSigners(
+            internalPartyIntent, matchBundle.permit.matchResult, internalParty.privateKey, executor.privateKey
+        );
+
         // Capitalize the parties for their obligations
         capitalizeParty(internalParty.addr, internalPartyObligation);
         capitalizeExternalParty(externalPartyObligation);
@@ -69,12 +75,9 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
             PublicIntentPermit memory internalPartyPermit,
             SettlementObligation memory internalPartyObligation,
             SettlementObligation memory externalPartyObligation,
-            BoundedMatchResultBundle memory matchBundle
+            BoundedMatchResultBundle memory matchBundle,
+            SettlementBundle memory internalPartySettlementBundle
         ) = _createMatchData();
-
-        SettlementBundle memory internalPartySettlementBundle = createPublicIntentSettlementBundleWithSigners(
-            internalPartyPermit.intent, internalPartyObligation, internalParty.privateKey, executor.privateKey
-        );
 
         // Choose a trade size and build the actual obligations that will be used in settlement
         (uint256 externalPartyAmountIn, uint256 externalPartyAmountOut) =
