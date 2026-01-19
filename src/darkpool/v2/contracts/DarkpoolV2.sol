@@ -22,7 +22,7 @@ import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
@@ -297,7 +297,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     function settleExternalMatch(
         uint256 externalPartyAmountIn,
         address recipient,
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         SettlementBundle calldata internalPartySettlementBundle
     )
         public
@@ -305,7 +305,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         ExternalSettlementLib.settleExternalMatch(
-            _state, contracts, externalPartyAmountIn, recipient, matchBundle, internalPartySettlementBundle
+            _state, contracts, externalPartyAmountIn, recipient, matchResult, internalPartySettlementBundle
         );
     }
 

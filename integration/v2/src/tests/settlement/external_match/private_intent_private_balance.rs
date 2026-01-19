@@ -41,8 +41,7 @@ use renegade_darkpool_types::{
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use super::private_intent_public_balance::{
-    build_match_result_bundle, create_intent_and_bounded_match_result, create_obligations,
-    pick_external_party_amt_in,
+    create_intent_and_bounded_match_result, create_obligations, pick_external_party_amt_in,
 };
 
 /// Test settling a Ring 2 match against an external party's intent
@@ -59,12 +58,9 @@ async fn test_bounded_settlement__private_intent_private_balance(args: TestArgs)
 
     // --- First Fill --- //
 
-    // Build match result bundle
-    let bounded_match_result_bundle =
-        build_match_result_bundle(&bounded_match_result, &args).await?;
-    let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result_bundle);
+    let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result);
     let (internal_obligation, external_obligation) =
-        create_obligations(&bounded_match_result_bundle, external_party_amt_in);
+        create_obligations(&bounded_match_result, external_party_amt_in);
 
     // Fund the ring-2 party with the balance amount (guaranteed >= max by construction)
     let funding_obligation = SettlementObligation {
@@ -99,7 +95,7 @@ async fn test_bounded_settlement__private_intent_private_balance(args: TestArgs)
     let tx = args.darkpool.settleExternalMatch(
         external_party_amt_in,
         external_party,
-        bounded_match_result_bundle,
+        bounded_match_result.clone().into(),
         settlement_bundle,
     );
     let tx_receipt = wait_for_tx_success(tx).await?;
@@ -143,12 +139,10 @@ async fn test_bounded_settlement__private_intent_private_balance(args: TestArgs)
     let bounded_match_result2 =
         create_bounded_match_result_with_balance(&state_intent.inner, remaining_balance);
 
-    // Build match result bundle for second fill and pick external amount upfront
-    let bounded_match_result_bundle2 =
-        build_match_result_bundle(&bounded_match_result2, &args).await?;
-    let external_party_amt_in2 = pick_external_party_amt_in(&bounded_match_result_bundle2);
+    // Build match result for second fill and pick external amount upfront
+    let external_party_amt_in2 = pick_external_party_amt_in(&bounded_match_result2);
     let (internal_obligation2, external_obligation2) =
-        create_obligations(&bounded_match_result_bundle2, external_party_amt_in2);
+        create_obligations(&bounded_match_result2, external_party_amt_in2);
 
     // Build settlement bundle for subsequent fill
     let settlement_bundle2 = build_settlement_bundle_subsequent_fill(
@@ -170,7 +164,7 @@ async fn test_bounded_settlement__private_intent_private_balance(args: TestArgs)
     let tx2 = args.darkpool.settleExternalMatch(
         external_party_amt_in2,
         external_party,
-        bounded_match_result_bundle2,
+        bounded_match_result2.into(),
         settlement_bundle2,
     );
     wait_for_tx_success(tx2).await?;

@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import {
     SettlementBundle,
@@ -38,28 +37,27 @@ library ExternalSettlementLib {
     /// @param contracts The contract references needed for settlement
     /// @param externalPartyAmountIn The input amount for the trade
     /// @param recipient The recipient of the withdrawal
-    /// @param matchBundle The bounded match result bundle
+    /// @param matchResult The bounded match result parameters
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     function settleExternalMatch(
         DarkpoolState storage state,
         DarkpoolContracts memory contracts,
         uint256 externalPartyAmountIn,
         address recipient,
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         SettlementBundle calldata internalPartySettlementBundle
     )
         external
     {
         // Validate the bounded match result
-        BoundedMatchResultLib.validateBoundedMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
+        BoundedMatchResultLib.validateBoundedMatchResult(matchResult, externalPartyAmountIn);
 
         // Validate that tokens are whitelisted
-        BoundedMatchResult calldata boundedMatchResult = matchBundle.permit.matchResult;
-        if (!state.isTokenWhitelisted(boundedMatchResult.internalPartyInputToken)) {
-            revert IDarkpoolV2.TokenNotWhitelisted(boundedMatchResult.internalPartyInputToken);
+        if (!state.isTokenWhitelisted(matchResult.internalPartyInputToken)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(matchResult.internalPartyInputToken);
         }
-        if (!state.isTokenWhitelisted(boundedMatchResult.internalPartyOutputToken)) {
-            revert IDarkpoolV2.TokenNotWhitelisted(boundedMatchResult.internalPartyOutputToken);
+        if (!state.isTokenWhitelisted(matchResult.internalPartyOutputToken)) {
+            revert IDarkpoolV2.TokenNotWhitelisted(matchResult.internalPartyOutputToken);
         }
 
         // Allocate a settlement context
@@ -67,7 +65,7 @@ library ExternalSettlementLib {
 
         // Validate and execute the settlement bundle
         executeExternalSettlementBundle(
-            matchBundle,
+            matchResult,
             externalPartyAmountIn,
             recipient,
             internalPartySettlementBundle,
@@ -150,7 +148,7 @@ library ExternalSettlementLib {
     // --- Settlement Bundle Validation --- //
 
     /// @notice Execute an external settlement bundle
-    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param matchResult The bounded match result parameters
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
@@ -158,7 +156,7 @@ library ExternalSettlementLib {
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeExternalSettlementBundle(
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata internalPartySettlementBundle,
@@ -171,7 +169,7 @@ library ExternalSettlementLib {
         SettlementBundleType bundleType = internalPartySettlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             NativeSettledPublicIntentLib.executeBoundedMatch(
-                matchBundle,
+                matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 internalPartySettlementBundle,
@@ -180,7 +178,7 @@ library ExternalSettlementLib {
             );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.executeBoundedMatch(
-                matchBundle,
+                matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 internalPartySettlementBundle,
@@ -190,7 +188,7 @@ library ExternalSettlementLib {
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             RenegadeSettledPrivateIntentLib.executeBoundedMatch(
-                matchBundle,
+                matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 internalPartySettlementBundle,

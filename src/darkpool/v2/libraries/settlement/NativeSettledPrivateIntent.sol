@@ -12,8 +12,7 @@ import {
     PrivateIntentPublicBalanceBoundedFirstFillBundle,
     PrivateIntentPublicBalanceBoundedLib
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBoundedLib.sol";
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
-import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -66,7 +65,7 @@ library NativeSettledPrivateIntentLib {
     }
 
     /// @notice Validate and execute a bounded match settlement bundle with a private intent and public balance
-    /// @param matchBundle The bounded match result bundle containing the match parameters
+    /// @param matchResult The bounded match result containing the match parameters
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
@@ -74,7 +73,7 @@ library NativeSettledPrivateIntentLib {
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatch(
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
@@ -86,7 +85,7 @@ library NativeSettledPrivateIntentLib {
     {
         if (settlementBundle.isFirstFill) {
             executeBoundedMatchFirstFill(
-                matchBundle,
+                matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 settlementBundle,
@@ -96,7 +95,7 @@ library NativeSettledPrivateIntentLib {
             );
         } else {
             executeBoundedMatchSubsequent(
-                matchBundle,
+                matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 settlementBundle,
@@ -108,7 +107,7 @@ library NativeSettledPrivateIntentLib {
     }
 
     /// @notice Execute a bounded match for a first fill
-    /// @param matchBundle The bounded match result bundle containing the match parameters
+    /// @param matchResult The bounded match result containing the match parameters
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
@@ -116,7 +115,7 @@ library NativeSettledPrivateIntentLib {
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatchFirstFill(
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
@@ -132,11 +131,11 @@ library NativeSettledPrivateIntentLib {
                 settlementBundle
             );
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
+            BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
 
         // 1. Verify the settlement proof
         PrivateIntentPublicBalanceBoundedLib.verifySettlement(
-            matchBundle.permit.matchResult,
+            matchResult,
             bundleData.settlementStatement,
             bundleData.settlementProof,
             contracts,
@@ -164,7 +163,7 @@ library NativeSettledPrivateIntentLib {
     }
 
     /// @notice Execute a bounded match for a subsequent fill
-    /// @param matchBundle The bounded match result bundle containing the match parameters
+    /// @param matchResult The bounded match result containing the match parameters
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
@@ -172,7 +171,7 @@ library NativeSettledPrivateIntentLib {
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatchSubsequent(
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
@@ -186,11 +185,11 @@ library NativeSettledPrivateIntentLib {
         PrivateIntentPublicBalanceBoundedBundle memory bundleData =
             PrivateIntentPublicBalanceBoundedLib.decodePrivateIntentPublicBalanceBoundedBundle(settlementBundle);
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
+            BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
 
         // 1. Verify the settlement proof
         PrivateIntentPublicBalanceBoundedLib.verifySettlement(
-            matchBundle.permit.matchResult,
+            matchResult,
             bundleData.settlementStatement,
             bundleData.settlementProof,
             contracts,

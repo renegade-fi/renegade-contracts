@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import {
     PartyId,
@@ -85,14 +84,14 @@ library NativeSettledPublicIntentLib {
     }
 
     /// @notice Validate and execute a public intent and public balance settlement bundle for a bounded match
-    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param matchResult The bounded match result parameters
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatch(
-        BoundedMatchResultBundle calldata matchBundle,
+        BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
@@ -104,10 +103,10 @@ library NativeSettledPublicIntentLib {
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
+            BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
 
         // Verify that the executor has signed the bounded match result (including fee)
-        validateBoundedMatchResultAuthorization(bundleData, matchBundle.permit.matchResult, state);
+        validateBoundedMatchResultAuthorization(bundleData, matchResult, state);
 
         executeInner(bundleData, internalObligation, settlementContext, state);
 
