@@ -16,11 +16,7 @@ import {
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
-import {
-    BoundedMatchResultPermit,
-    BoundedMatchResultBundle,
-    BoundedMatchResultPermitLib
-} from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
@@ -28,7 +24,6 @@ import { ExternalMatchTestUtils } from "../Utils.sol";
 
 contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
     using BoundedMatchResultLib for BoundedMatchResult;
-    using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
     using PublicIntentPermitLib for PublicIntentPermit;
     using FixedPointLib for FixedPoint;
 
@@ -129,18 +124,62 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
 
     // --- Bounded Match Result --- //
 
-    /// @dev Create a bounded match result authorization bundle for a given obligation
+    /// @dev Create a bounded match result bundle for a given obligation
     /// @param obligation The obligation to create the bounded match result for
     /// @param price The price of the obligation (inToken/outToken)
-    /// @return matchBundle The bounded match result authorization bundle
+    /// @return matchBundle The bounded match result bundle
     function createBoundedMatchResultBundleForObligation(
         SettlementObligation memory obligation,
         FixedPoint memory price
     )
         internal
+        view
         returns (BoundedMatchResultBundle memory)
     {
         BoundedMatchResult memory matchResult = createBoundedMatchResultForObligation(obligation, price);
-        return createBoundedMatchResultBundleWithSigners(matchResult, executor.privateKey);
+        return createBoundedMatchResultBundle(matchResult);
+    }
+
+    /// @dev Create a settlement bundle for bounded match with custom signers
+    /// @param intent The intent to create the settlement bundle for
+    /// @param matchResult The bounded match result
+    /// @param intentOwnerPrivateKey The private key of the intent owner
+    /// @param executorPrivateKey The private key of the executor
+    /// @return settlementBundle The settlement bundle
+    function createBoundedMatchSettlementBundleWithSigners(
+        Intent memory intent,
+        BoundedMatchResult memory matchResult,
+        uint256 intentOwnerPrivateKey,
+        uint256 executorPrivateKey
+    )
+        internal
+        returns (SettlementBundle memory)
+    {
+        // Create the permit and sign it with the owner key
+        PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
+        SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
+
+        // Create relayer fee rate and sign (feeRate, matchResult) with the executor key
+        FeeRate memory feeRate = relayerFeeRate();
+        SignatureWithNonce memory executorSignature =
+            createBoundedMatchExecutorSignature(feeRate, matchResult, executorPrivateKey);
+
+        // Create auth bundle with empty permit (no first-fill permit)
+        SignedPermitSingle memory emptyPermit;
+        PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
+            intentPermit: permit,
+            intentSignature: intentSignature,
+            executorSignature: executorSignature,
+            allowancePermit: emptyPermit
+        });
+        PublicIntentPublicBalanceBundle memory bundleData =
+            PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
+
+        // Create the complete settlement bundle
+        return SettlementBundle({
+            isFirstFill: false,
+            bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
+            data: abi.encode(bundleData)
+        });
     }
 }

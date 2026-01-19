@@ -14,6 +14,7 @@ import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-type
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 // ---------------------------
@@ -180,6 +181,24 @@ library SettlementBundleLib {
     {
         // Encode and hash the fee take with the obligation
         bytes memory encoded = abi.encode(bundleData.relayerFeeRate, obligation);
+        digest = EfficientHashLib.hash(encoded);
+    }
+
+    /// @notice Compute the digest which the executor must sign for a bounded match
+    /// @dev The digest is the hash of the relayer's fee take and the bounded match result. The executor authorizes both
+    /// these values through a signature.
+    /// @param bundleData The bundle data containing the relayer fee rate
+    /// @param matchResult The bounded match result
+    /// @return digest The digest which the executor must sign
+    function computeBoundedMatchExecutorDigest(
+        PublicIntentPublicBalanceBundle memory bundleData,
+        BoundedMatchResult calldata matchResult
+    )
+        internal
+        pure
+        returns (bytes32 digest)
+    {
+        bytes memory encoded = abi.encode(bundleData.relayerFeeRate, matchResult);
         digest = EfficientHashLib.hash(encoded);
     }
 
