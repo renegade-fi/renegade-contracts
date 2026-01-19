@@ -16,10 +16,8 @@ use crate::{
 use alloy::{primitives::U256, signers::local::PrivateKeySigner};
 use eyre::Result;
 use rand::{Rng, thread_rng};
-use renegade_abi::v2::{
-    IDarkpoolV2::{BoundedMatchResultBundle, SettlementBundle},
-    relayer_types::u256_to_u128,
-};
+use renegade_abi::v2::{IDarkpoolV2::SettlementBundle, relayer_types::u256_to_u128};
+use renegade_crypto::fields::scalar_to_u256;
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
@@ -50,12 +48,9 @@ async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) 
 
     // --- First Fill --- //
 
-    // Build match result bundle
-    let bounded_match_result_bundle =
-        build_match_result_bundle(&bounded_match_result, &args).await?;
-    let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result_bundle);
+    let external_party_amt_in = pick_external_party_amt_in(&bounded_match_result);
     let (internal_obligation, external_obligation) =
-        create_obligations(&bounded_match_result_bundle, external_party_amt_in);
+        create_obligations(&bounded_match_result, external_party_amt_in);
 
     // Build settlement bundle
     let chain_id = args.chain_id().await?;
@@ -77,7 +72,7 @@ async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) 
     let tx = args.darkpool.settleExternalMatch(
         external_party_amt_in,
         external_party, // recipient
-        bounded_match_result_bundle,
+        bounded_match_result.clone().into(),
         settlement_bundle0,
     );
     wait_for_tx_success(tx).await?;
@@ -163,32 +158,31 @@ pub(crate) fn create_intent_and_bounded_match_result(
 ///
 /// This is called once upfront to determine the trade size, then passed to
 /// `create_obligations` to build the actual obligations.
-pub(crate) fn pick_external_party_amt_in(match_bundle: &BoundedMatchResultBundle) -> U256 {
+pub(crate) fn pick_external_party_amt_in(match_result: &BoundedMatchResult) -> U256 {
     let mut rng = thread_rng();
-    let price_repr: U256 = match_bundle.permit.matchResult.price.repr;
-    let min_internal: U256 = match_bundle.permit.matchResult.minInternalPartyAmountIn;
-    let max_internal: U256 = match_bundle.permit.matchResult.maxInternalPartyAmountIn;
+    let price_repr = scalar_to_u256(&match_result.price.repr);
+    let min_internal = match_result.min_internal_party_amount_in;
+    let max_internal = match_result.max_internal_party_amount_in;
 
     // Pick internal amount in valid range, derive external via ceil division
-    let picked_internal =
-        U256::from(rng.gen_range(u256_to_u128(min_internal)..=u256_to_u128(max_internal)));
+    let picked_internal = U256::from(rng.gen_range(min_internal..=max_internal));
     let shift = U256::from(1u128) << 63u32;
     (picked_internal * price_repr + shift - U256::from(1u8)) / shift
 }
 
 /// Create obligations for an external match with a specified external amount
 pub(crate) fn create_obligations(
-    match_bundle: &BoundedMatchResultBundle,
+    match_result: &BoundedMatchResult,
     external_party_amt_in: U256,
 ) -> (SettlementObligation, SettlementObligation) {
-    let price_repr: U256 = match_bundle.permit.matchResult.price.repr;
+    let price_repr = scalar_to_u256(&match_result.price.repr);
 
     // Contract formula: internal_amt_in = (external_amt_in << 63) / price_repr
     let external_party_amt_out = (external_party_amt_in << 63u32) / price_repr;
 
     let external_obligation = SettlementObligation {
-        input_token: match_bundle.permit.matchResult.internalPartyOutputToken,
-        output_token: match_bundle.permit.matchResult.internalPartyInputToken,
+        input_token: match_result.internal_party_output_token,
+        output_token: match_result.internal_party_input_token,
         amount_in: u256_to_u128(external_party_amt_in),
         amount_out: u256_to_u128(external_party_amt_out),
     };
@@ -225,18 +219,6 @@ fn generate_settlement_proof(
 }
 
 // --- Calldata Bundles --- //
-
-/// Build a match result bundle
-pub(crate) async fn build_match_result_bundle(
-    bounded_match_result: &BoundedMatchResult,
-    args: &TestArgs,
-) -> Result<BoundedMatchResultBundle> {
-    let chain_id = args.chain_id().await?;
-    let executor = &args.relayer_signer;
-    let bounded_match_result_bundle =
-        BoundedMatchResultBundle::new(chain_id, bounded_match_result, executor)?;
-    Ok(bounded_match_result_bundle)
-}
 
 /// Build a settlement bundle for the first fill
 fn build_settlement_bundle_first_fill(
