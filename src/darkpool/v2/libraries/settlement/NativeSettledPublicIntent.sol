@@ -23,6 +23,7 @@ import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.so
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -152,6 +153,8 @@ library NativeSettledPublicIntentLib {
     /// @notice Validate the authorization of a public intent
     /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
     /// filled by the executor.
+    /// @dev The intent nullifier H(intentHash || signatureNonce) uniquely identifies each intent authorization.
+    /// It is only spent on cancellation, not on fill. Replay protection comes from the signature nonce.
     /// @param bundleData The auth bundle data to validate
     /// @param state The darkpool state containing all storage references
     /// @return amountRemaining The amount remaining on the intent
@@ -172,7 +175,17 @@ library NativeSettledPublicIntentLib {
             return (amountRemaining, intentHash);
         }
 
+        // Compute the intent nullifier to check for cancellation
+        BN254.ScalarField intentNullifier =
+            PublicIntentPermitLib.computeNullifier(intentHash, auth.intentSignature.nonce);
+
+        // Check if the nullifier has been spent (intent was cancelled)
+        if (state.isNullifierSpent(intentNullifier)) {
+            revert IDarkpoolV2.PublicOrderAlreadyCancelled();
+        }
+
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
+        // The signature nonce is spent here to prevent replay
         bool sigValid =
             auth.intentSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.intent.owner, intentHash, state);
         if (!sigValid) revert InvalidIntentSignature();
