@@ -80,8 +80,6 @@ library StateUpdatesLib {
 
     /// @notice Cancel a public intent
     /// @dev This cancels a public intent by spending its nullifier and zeroing its amountRemaining.
-    /// @dev The nullifier is computed as H(intentHash || intentSignature.nonce) where intentSignature
-    /// is the original signature the user created when authorizing the intent.
     /// @dev User signs H("cancel" || intentNullifier) for the cancellation.
     /// @param state The darkpool state containing all storage references
     /// @param auth The authorization for the order cancellation
@@ -98,8 +96,7 @@ library StateUpdatesLib {
     {
         // 1. Compute the intent hash and nullifier
         bytes32 intentHash = permit.computeHash();
-        BN254.ScalarField intentNullifier =
-            BN254.ScalarField.wrap(uint256(keccak256(abi.encodePacked(intentHash, intentSignature.nonce))));
+        BN254.ScalarField intentNullifier = PublicIntentPermitLib.computeNullifier(intentHash, intentSignature.nonce);
 
         // 2. Compute the cancel digest with domain separation: H("cancel" || intentNullifier)
         bytes32 cancelDigest =
@@ -110,8 +107,8 @@ library StateUpdatesLib {
         bool sigValid = auth.signature.verifyPrehashedAndSpendNonce(owner, cancelDigest, state);
         if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
 
-        // 4. Spend the nullifier if not already spent (pre-first-fill case)
-        // Post-first-fill: nullifier was already spent during first fill, so we skip
+        // 4. Spend the nullifier to prevent future fills with this intent+nonce combination
+        // Check first to allow idempotent cancellation (retry safety)
         if (!state.isNullifierSpent(intentNullifier)) {
             state.spendNullifier(intentNullifier);
         }

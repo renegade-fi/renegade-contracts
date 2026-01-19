@@ -2,6 +2,7 @@
 // solhint-disable one-contract-per-file
 pragma solidity ^0.8.24;
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import {
@@ -51,6 +52,15 @@ library PublicIntentPermitLib {
     /// @return The hash of the public intent permit
     function computeHash(PublicIntentPermit memory permit) internal pure returns (bytes32) {
         return EfficientHashLib.hash(abi.encode(permit));
+    }
+
+    /// @notice Compute the nullifier for a public intent
+    /// @dev The nullifier uniquely identifies an intent + signature combination: H(intentHash || nonce)
+    /// @param intentHash The hash of the public intent permit
+    /// @param nonce The nonce from the intent signature
+    /// @return The nullifier as a scalar field element
+    function computeNullifier(bytes32 intentHash, uint256 nonce) internal pure returns (BN254.ScalarField) {
+        return BN254.ScalarField.wrap(uint256(keccak256(abi.encodePacked(intentHash, nonce))));
     }
 }
 

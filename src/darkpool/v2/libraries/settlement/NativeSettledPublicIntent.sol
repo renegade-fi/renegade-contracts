@@ -153,8 +153,8 @@ library NativeSettledPublicIntentLib {
     /// @notice Validate the authorization of a public intent
     /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
     /// filled by the executor.
-    /// @dev The intent nullifier is computed as H(intentHash || signatureNonce) to uniquely identify each intent
-    /// authorization. This allows the same intent params to be used with different signatures.
+    /// @dev The intent nullifier H(intentHash || signatureNonce) uniquely identifies each intent authorization.
+    /// It is only spent on cancellation, not on fill. Replay protection comes from the signature nonce.
     /// @param bundleData The auth bundle data to validate
     /// @param state The darkpool state containing all storage references
     /// @return amountRemaining The amount remaining on the intent
@@ -175,26 +175,23 @@ library NativeSettledPublicIntentLib {
             return (amountRemaining, intentHash);
         }
 
-        // Compute the intent nullifier: H(intentHash || signatureNonce)
-        // This uniquely identifies this intent + signature combination
+        // Compute the intent nullifier to check for cancellation
         BN254.ScalarField intentNullifier =
-            BN254.ScalarField.wrap(uint256(keccak256(abi.encodePacked(intentHash, auth.intentSignature.nonce))));
+            PublicIntentPermitLib.computeNullifier(intentHash, auth.intentSignature.nonce);
 
-        // Check if the nullifier has been spent (intent was cancelled or fully filled previously)
+        // Check if the nullifier has been spent (intent was cancelled)
         if (state.isNullifierSpent(intentNullifier)) {
             revert IDarkpoolV2.PublicOrderAlreadyCancelled();
         }
 
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
+        // The signature nonce is spent here to prevent replay
         bool sigValid =
             auth.intentSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.intent.owner, intentHash, state);
         if (!sigValid) revert InvalidIntentSignature();
 
         // Verify the intent's fields on its first fill
         IntentLib.validate(auth.intentPermit.intent);
-
-        // Spend the nullifier to prevent replay and enable cancellation tracking
-        state.spendNullifier(intentNullifier);
 
         // Now that we've authorized the intent, update the amount remaining mapping
         amountRemaining = auth.intentPermit.intent.amountIn;

@@ -13,6 +13,7 @@ import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { BN254 } from "solidity-bn254/BN254.sol";
 
 /// @title PublicIntentCancellationTest
 /// @author Renegade Eng
@@ -72,8 +73,8 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
     {
         uint256 nonce = vm.randomUint();
         bytes32 intentHash = permit.computeHash();
-        // Compute the intent nullifier: H(intentHash || intentSignature.nonce)
-        uint256 intentNullifier = uint256(keccak256(abi.encodePacked(intentHash, intentSignature.nonce)));
+        uint256 intentNullifier =
+            BN254.ScalarField.unwrap(PublicIntentPermitLib.computeNullifier(intentHash, intentSignature.nonce));
         bytes32 cancelDigest = keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, intentNullifier));
         bytes32 signatureHash = EfficientHashLib.hash(cancelDigest, bytes32(nonce), bytes32(block.chainid));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signatureHash);
@@ -119,8 +120,8 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
         returns (OrderCancellationAuth memory auth)
     {
         bytes32 intentHash = permit.computeHash();
-        // Compute the intent nullifier: H(intentHash || intentSignature.nonce)
-        uint256 intentNullifier = uint256(keccak256(abi.encodePacked(intentHash, intentSignature.nonce)));
+        uint256 intentNullifier =
+            BN254.ScalarField.unwrap(PublicIntentPermitLib.computeNullifier(intentHash, intentSignature.nonce));
         bytes32 cancelDigest = keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, intentNullifier));
         bytes32 signatureHash = EfficientHashLib.hash(cancelDigest, bytes32(cancelNonce), bytes32(block.chainid));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signatureHash);
