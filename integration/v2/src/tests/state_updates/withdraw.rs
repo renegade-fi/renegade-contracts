@@ -46,7 +46,8 @@ async fn test_withdraw(args: TestArgs) -> Result<()> {
     let proof_bundle = create_proof_bundle(&withdrawal, &balance, &merkle_path)?;
     let new_balance_commitment = proof_bundle.statement.newBalanceCommitment;
     let chain_id = args.chain_id().await?;
-    let withdrawal_auth = create_withdrawal_auth(new_balance_commitment, chain_id, &args.party0_signer())?;
+    let withdrawal_auth =
+        create_withdrawal_auth(new_balance_commitment, chain_id, &args.party0_signer())?;
 
     // Send the withdrawal txn
     let party0_balance_before = args.base_balance(args.party0_addr()).await?;
