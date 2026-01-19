@@ -82,9 +82,9 @@ trap cleanup EXIT
 # Start anvil in the background
 echo "Starting anvil node..."
 if [ "$SHOW_ANVIL_LOGS" = true ]; then
-    anvil &
+    anvil --disable-code-size-limit &
 else
-    anvil > /dev/null 2>&1 &
+    anvil --disable-code-size-limit > /dev/null 2>&1 &
 fi
 ANVIL_PID=$!
 
