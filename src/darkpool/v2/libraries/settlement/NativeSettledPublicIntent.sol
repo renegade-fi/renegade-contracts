@@ -23,6 +23,7 @@ import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.so
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -152,6 +153,8 @@ library NativeSettledPublicIntentLib {
     /// @notice Validate the authorization of a public intent
     /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
     /// filled by the executor.
+    /// @dev The intent nullifier is computed as H(intentHash || signatureNonce) to uniquely identify each intent
+    /// authorization. This allows the same intent params to be used with different signatures.
     /// @param bundleData The auth bundle data to validate
     /// @param state The darkpool state containing all storage references
     /// @return amountRemaining The amount remaining on the intent
@@ -172,6 +175,16 @@ library NativeSettledPublicIntentLib {
             return (amountRemaining, intentHash);
         }
 
+        // Compute the intent nullifier: H(intentHash || signatureNonce)
+        // This uniquely identifies this intent + signature combination
+        BN254.ScalarField intentNullifier =
+            BN254.ScalarField.wrap(uint256(keccak256(abi.encodePacked(intentHash, auth.intentSignature.nonce))));
+
+        // Check if the nullifier has been spent (intent was cancelled or fully filled previously)
+        if (state.isNullifierSpent(intentNullifier)) {
+            revert IDarkpoolV2.PublicOrderAlreadyCancelled();
+        }
+
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
         bool sigValid =
             auth.intentSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.intent.owner, intentHash, state);
@@ -179,6 +192,9 @@ library NativeSettledPublicIntentLib {
 
         // Verify the intent's fields on its first fill
         IntentLib.validate(auth.intentPermit.intent);
+
+        // Spend the nullifier to prevent replay and enable cancellation tracking
+        state.spendNullifier(intentNullifier);
 
         // Now that we've authorized the intent, update the amount remaining mapping
         amountRemaining = auth.intentPermit.intent.amountIn;

@@ -245,6 +245,23 @@
             "internalType": "address"
           }
         ]
+      },
+      {
+        "name": "intentSignature",
+        "type": "tuple",
+        "internalType": "struct SignatureWithNonce",
+        "components": [
+          {
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -2884,6 +2901,11 @@
   {
     "type": "error",
     "name": "ProofVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PublicOrderAlreadyCancelled",
     "inputs": []
   },
   {
