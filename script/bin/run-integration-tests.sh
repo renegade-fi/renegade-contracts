@@ -97,7 +97,8 @@ if ! forge script script/$VERSION/DeployDev.s.sol \
     --ffi \
     --rpc-url http://localhost:8545 \
     --private-key $ANVIL_PKEY \
-    --broadcast; then
+    --broadcast \
+    --slow; then
     echo "Forge script failed. Cleaning up and exiting..."
     exit 1
 fi
@@ -111,12 +112,12 @@ if [ "$SKIP_TESTS" = false ]; then
     fi
     if [ -n "$TEST_NAME" ]; then
         echo "Running specific test: $TEST_NAME"
-        if ! (cd integration/$VERSION && cargo run $CARGO_ARGS -- --test "$TEST_NAME"); then
+        if ! (cd integration/$VERSION && cargo +nightly-2025-11-25 run $CARGO_ARGS -- --test "$TEST_NAME"); then
             echo "Integration tests failed. Cleaning up and exiting..."
             exit 1
         fi
     else
-        if ! (cd integration/$VERSION && cargo run $CARGO_ARGS); then
+        if ! (cd integration/$VERSION && cargo +nightly-2025-11-25 run $CARGO_ARGS); then
             echo "Integration tests failed. Cleaning up and exiting..."
             exit 1
         fi

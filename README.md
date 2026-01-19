@@ -33,12 +33,14 @@ Please refer to our [whitepaper](https://www.renegade.fi/whitepaper.pdf) and [do
 ``` shell
 curl -L https://foundry.paradigm.xyz | bash
 ```
+Remember to run `foundryup` in a new terminal after running this command.
 
 ### Install `huffc`
 
 ```shell
 curl -L get.huff.sh | bash
 ```
+Remember to run `huffupp` in a new terminal after running this command.
 
 ### Install Cargo
 The integration tests are written in rust, and the unit test use rust reference implementations:
@@ -48,7 +50,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ### Clone the repo
 ``` shell
-git clone --recurse-submodules https://github.com/renegade-fi/renegade-solidity-contracts
+git clone --recurse-submodules https://github.com/renegade-fi/renegade-contracts
 ```
 
 ## Running unit tests
@@ -61,7 +63,7 @@ forge test --ffi -vv
 
 Assuming you have installed foundry and cargo, you can run the integration tests directly with:
 ```shell
-./scripts/run-integration-tests.sh --release
+./script/bin/run-integration-tests.sh --release
 ```
 This will:
 1. Start an `anvil` node
