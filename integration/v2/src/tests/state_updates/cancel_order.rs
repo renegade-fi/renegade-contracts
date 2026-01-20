@@ -1,9 +1,8 @@
 //! Tests for canceling an order
 
 use eyre::Result;
-use renegade_abi::v2::{
-    IDarkpoolV2::{OrderCancellationAuth, OrderCancellationProofBundle},
-    auth_helpers::sign_with_nonce,
+use renegade_abi::v2::IDarkpoolV2::{
+    OrderCancellationAuth, OrderCancellationProofBundle, SignatureWithNonce,
 };
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::PlonkProof;
@@ -71,7 +70,7 @@ fn create_auth_bundle(
     args: &TestArgs,
 ) -> Result<OrderCancellationAuth> {
     let nullifier = intent.compute_nullifier();
-    let signature = sign_with_nonce(&nullifier.to_bytes_be(), chain_id, &args.party0_signer())?;
+    let signature = SignatureWithNonce::sign(&nullifier.to_bytes_be(), chain_id, &args.party0_signer())?;
 
     Ok(OrderCancellationAuth { signature })
 }

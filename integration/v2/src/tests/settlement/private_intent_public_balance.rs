@@ -9,9 +9,8 @@ use rand::{Rng, thread_rng};
 use renegade_abi::v2::{
     IDarkpoolV2::{
         ObligationBundle, PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill,
-        SettlementBundle,
+        SettlementBundle, SignatureWithNonce,
     },
-    auth_helpers::sign_with_nonce,
 };
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint};
@@ -377,10 +376,10 @@ pub(crate) fn build_auth_bundle_first_fill(
     validity_statement: &IntentOnlyFirstFillValidityStatement,
     validity_proof: &PlonkProof,
 ) -> Result<PrivateIntentAuthBundleFirstFill> {
-    // Pass raw commitment bytes to sign_with_nonce which will hash them.
+    // Pass raw commitment bytes to SignatureWithNonce::sign which will hash them.
     // This matches the Solidity: keccak256(keccak256(commitment) || nonce || chainId)
     let comm_u256 = scalar_to_u256(&commitment);
-    let signature = sign_with_nonce(&comm_u256.to_be_bytes_vec(), chain_id, owner)?;
+    let signature = SignatureWithNonce::sign(&comm_u256.to_be_bytes_vec(), chain_id, owner)?;
 
     Ok(PrivateIntentAuthBundleFirstFill {
         intentSignature: signature,
