@@ -46,9 +46,7 @@ impl SettlementObligation {
     ) -> Result<SignatureWithNonce, SignerError> {
         use alloy::sol_types::SolValue;
 
-        use crate::v2::auth_helpers::sign_with_nonce;
-
         let payload = (relayer_fee_rate.clone(), self.clone()).abi_encode();
-        sign_with_nonce(payload.as_slice(), chain_id, signer)
+        SignatureWithNonce::sign(payload.as_slice(), chain_id, signer)
     }
 }

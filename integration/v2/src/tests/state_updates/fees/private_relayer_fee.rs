@@ -2,9 +2,8 @@
 
 use alloy::sol_types::SolValue;
 use eyre::Result;
-use renegade_abi::v2::{
-    IDarkpoolV2::{ElGamalCiphertext, PrivateRelayerFeePaymentProofBundle, SignatureWithNonce},
-    auth_helpers::sign_with_nonce,
+use renegade_abi::v2::IDarkpoolV2::{
+    ElGamalCiphertext, PrivateRelayerFeePaymentProofBundle, SignatureWithNonce,
 };
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::PlonkProof;
@@ -88,7 +87,7 @@ fn sign_ciphertext(
 ) -> Result<SignatureWithNonce> {
     let signer = &args.relayer_signer;
     let ciphertext = ElGamalCiphertext::from(cipher.clone());
-    let sig = sign_with_nonce(&ciphertext.abi_encode(), chain_id, signer)?;
+    let sig = SignatureWithNonce::sign(&ciphertext.abi_encode(), chain_id, signer)?;
     Ok(sig)
 }
 

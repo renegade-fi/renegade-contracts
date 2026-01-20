@@ -14,6 +14,7 @@ use renegade_crypto_v2::fields::scalar_to_u256;
 use {
     crate::v2::IDarkpoolV2::PublicIntentPermit,
     alloy::{
+        primitives::Address,
         signers::{local::PrivateKeySigner, Error as SignerError},
         sol_types::SolValue,
     },
@@ -101,7 +102,17 @@ impl PublicIntentPermit {
         chain_id: u64,
         signer: &PrivateKeySigner,
     ) -> Result<SignatureWithNonce, SignerError> {
-        use crate::v2::auth_helpers::sign_with_nonce;
-        sign_with_nonce(self.abi_encode().as_slice(), chain_id, signer)
+        let payload = self.abi_encode();
+        SignatureWithNonce::sign(&payload, chain_id, signer)
+    }
+
+    /// Validate a signature for a public intent permit against a known address
+    pub fn validate(
+        &self,
+        chain_id: u64,
+        signature_with_nonce: &SignatureWithNonce,
+        expected_address: Address,
+    ) -> Result<bool, SignerError> {
+        signature_with_nonce.validate(self.abi_encode().as_slice(), chain_id, expected_address)
     }
 }
