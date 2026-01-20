@@ -12,7 +12,7 @@ This is a CLI tool for deploying Renegade contracts to an EVM network.
 From the `tools/deploy` directory, run:
 
 ```bash
-cargo build
+cargo +nightly-2025-11-25 build
 ```
 
 ## Usage
@@ -20,7 +20,7 @@ cargo build
 You can use the tool directly:
 
 ```bash
-cargo run -- --help
+cargo +nightly-2025-11-25 run -- --help
 ```
 
 ## Available Commands
@@ -37,7 +37,7 @@ cargo run -- --help
 #### Deploy Darkpool
 
 ```bash
-cargo run -- deploy-darkpool \
+cargo +nightly-2025-11-25 run -- deploy-darkpool \
   --rpc-url https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY \
   --owner 0xYourOwnerAddress \
   --permit2 0x000000000022D473030F116dDEE9F6B43aC78BA3 \
@@ -50,7 +50,7 @@ cargo run -- deploy-darkpool \
 #### Deploy GasSponsor
 
 ```bash
-cargo run -- deploy-gas-sponsor \
+cargo +nightly-2025-11-25 run -- deploy-gas-sponsor \
   --rpc-url https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY \
   --owner 0xYourOwnerAddress \
   --darkpool 0xYourDarkpoolAddress \
@@ -61,7 +61,7 @@ cargo run -- deploy-gas-sponsor \
 #### Deploy MalleableMatchConnector
 
 ```bash
-cargo run -- deploy-malleable-match-connector \
+cargo +nightly-2025-11-25 run -- deploy-malleable-match-connector \
   --rpc-url https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY \
   --admin 0xYourAdminAddress \
   --gas-sponsor 0xYourGasSponsorAddress \
@@ -71,7 +71,7 @@ cargo run -- deploy-malleable-match-connector \
 #### Deploy MalleableMatchConnector Implementation (for upgrades)
 
 ```bash
-cargo run -- deploy-malleable-match-connector-implementation \
+cargo +nightly-2025-11-25 run -- deploy-malleable-match-connector-implementation \
   --rpc-url https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY \
   --pkey YOUR_PRIVATE_KEY
 ```
@@ -88,7 +88,7 @@ export RPC_URL=https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY
 export PKEY=your_private_key_here
 
 # Run with environment variables
-cargo run -- \
+cargo +nightly-2025-11-25 run -- \
   --permit2 0x000000000022D473030F116dDEE9F6B43aC78BA3 \
   --weth 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
   --fee-recipient 0xYourFeeRecipientAddress \
