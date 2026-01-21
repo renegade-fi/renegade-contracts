@@ -7,8 +7,9 @@ use renegade_darkpool_types::{balance::DarkpoolStateBalance, intent::DarkpoolSta
 use crate::{
     test_args::TestArgs,
     tests::settlement::{
+        create_random_intents_and_obligations,
         private_fill::{self, SubsequentFillStateElements},
-        private_intent_private_balance::{self, fund_ring2_party},
+        private_intent_private_balance::fund_ring2_party,
         split_obligation,
     },
     util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
@@ -47,7 +48,7 @@ pub(crate) async fn setup_private_intent_private_balance(
 ) -> Result<PrivateIntentPrivateBalanceElements> {
     // Build intents and obligations for a trade
     let (intent0, intent1, obligation0, obligation1) =
-        private_intent_private_balance::create_intents_and_obligations(args)?;
+        create_random_intents_and_obligations(args).await?;
 
     // Split the obligations
     // We want to return a set of state elements that are not completely filled or exhausted, so we only execute a first fill

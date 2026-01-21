@@ -17,7 +17,6 @@ use alloy::{primitives::U256, signers::local::PrivateKeySigner};
 use eyre::Result;
 use rand::{Rng, thread_rng};
 use renegade_abi::v2::{IDarkpoolV2::SettlementBundle, relayer_types::u256_to_u128};
-use renegade_crypto::fields::scalar_to_u256;
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
@@ -27,6 +26,7 @@ use renegade_circuits::{
         self, IntentOnlyBoundedSettlementCircuit, IntentOnlyBoundedSettlementStatement,
     },
 };
+use renegade_crypto::fields::scalar_to_u256;
 use renegade_darkpool_types::{
     bounded_match_result::BoundedMatchResult,
     intent::{DarkpoolStateIntent, Intent},

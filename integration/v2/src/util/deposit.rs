@@ -3,8 +3,8 @@
 use alloy::{primitives::Address, signers::local::PrivateKeySigner};
 use eyre::Result;
 use renegade_abi::v2::{
-    transfer_auth::deposit::create_deposit_permit,
     IDarkpoolV2::{Deposit, DepositAuth},
+    transfer_auth::deposit::create_deposit_permit,
 };
 use renegade_constants::Scalar;
 use renegade_crypto::fields::scalar_to_u256;

@@ -11,6 +11,7 @@ use crate::{
 
 pub mod private_intent_private_balance;
 pub mod private_intent_public_balance;
+pub mod public_intent_public_balance;
 
 /// Compute the fee take for an external match
 pub async fn compute_fee_take(

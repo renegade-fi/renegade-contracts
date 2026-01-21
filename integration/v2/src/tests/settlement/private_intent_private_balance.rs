@@ -8,7 +8,7 @@ use alloy::{
     signers::local::PrivateKeySigner,
 };
 use eyre::Result;
-use rand::{Rng, thread_rng};
+use rand::thread_rng;
 use renegade_abi::v2::IDarkpoolV2::{
     self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle,
     PublicIntentPermit, RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill,
@@ -18,7 +18,7 @@ use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
-    test_helpers::{BOUNDED_MAX_AMT, create_random_state_wrapper, random_price},
+    test_helpers::create_random_state_wrapper,
     zk_circuits::{
         proof_linking::{
             intent_and_balance::link_sized_intent_and_balance_settlement,
@@ -62,13 +62,14 @@ use crate::{
     test_args::TestArgs,
     tests::{
         settlement::{
-            compute_fee_take, settlement_relayer_fee, settlement_relayer_fee_rate, split_obligation,
+            compute_fee_take, create_random_intents_and_obligations, settlement_relayer_fee,
+            settlement_relayer_fee_rate, split_obligation,
         },
         state_updates::create_balance::create_balance,
     },
     util::{
-        deposit::fund_for_deposit, fuzzing::create_matching_intents_and_obligations,
-        merkle::find_state_element_opening, transactions::wait_for_tx_success,
+        deposit::fund_for_deposit, merkle::find_state_element_opening,
+        transactions::wait_for_tx_success,
     },
 };
 
@@ -78,7 +79,8 @@ use crate::{
 #[allow(non_snake_case)]
 async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Result<()> {
     // Build the intents and obligations
-    let (intent0, intent1, obligation0, obligation1) = create_intents_and_obligations(&args)?;
+    let (intent0, intent1, obligation0, obligation1) =
+        create_random_intents_and_obligations(&args).await?;
 
     // Fund both parties
     let (mut party0_bal, party0_bal_opening) =
@@ -201,27 +203,6 @@ integration_test_async!(test_settlement__private_intent_private_balance);
 // -----------
 // | Helpers |
 // -----------
-
-// --- Match Setup --- //
-
-/// Create intents and obligations for the match
-pub fn create_intents_and_obligations(
-    args: &TestArgs,
-) -> Result<(Intent, Intent, SettlementObligation, SettlementObligation)> {
-    let mut rng = thread_rng();
-    let amount_in = rng.gen_range(0..=BOUNDED_MAX_AMT);
-    let party0_intent = Intent {
-        in_token: args.base_addr()?,
-        out_token: args.quote_addr()?,
-        owner: args.party0_addr(),
-        min_price: random_price(),
-        amount_in,
-    };
-
-    let (counterparty_intent, obligation0, obligation1) =
-        create_matching_intents_and_obligations(&party0_intent, args.party1_addr())?;
-    Ok((party0_intent, counterparty_intent, obligation0, obligation1))
-}
 
 // --- Funding --- //
 

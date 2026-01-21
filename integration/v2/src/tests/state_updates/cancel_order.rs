@@ -70,7 +70,8 @@ fn create_auth_bundle(
     args: &TestArgs,
 ) -> Result<OrderCancellationAuth> {
     let nullifier = intent.compute_nullifier();
-    let signature = SignatureWithNonce::sign(&nullifier.to_bytes_be(), chain_id, &args.party0_signer())?;
+    let signature =
+        SignatureWithNonce::sign(&nullifier.to_bytes_be(), chain_id, &args.party0_signer())?;
 
     Ok(OrderCancellationAuth { signature })
 }

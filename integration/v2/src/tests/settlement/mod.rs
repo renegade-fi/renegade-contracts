@@ -1,18 +1,24 @@
 //! Settlement tests
 
 use eyre::Result;
+use rand::{Rng, thread_rng};
 use renegade_abi::v2::IDarkpoolV2::FeeRate;
 use renegade_circuit_types::fixed_point::FixedPoint;
+use renegade_circuits::test_helpers::{BOUNDED_MAX_AMT, random_price};
 use renegade_crypto::fields::scalar_to_u128;
-use renegade_darkpool_types::{fee::FeeTake, settlement_obligation::SettlementObligation};
+use renegade_darkpool_types::{
+    fee::FeeTake, intent::Intent, settlement_obligation::SettlementObligation,
+};
 
 use crate::test_args::TestArgs;
+use crate::util::fuzzing::create_matching_intents_and_obligations;
 
 mod external_match;
 
 pub(crate) mod private_fill;
 pub(crate) mod private_intent_private_balance;
 mod private_intent_public_balance;
+mod public_intent_public_balance;
 
 /// The settlement relayer fee to use for testing
 pub fn settlement_relayer_fee() -> FixedPoint {
@@ -63,4 +69,24 @@ pub(crate) fn split_obligation(
     obligation1.amount_out /= 2;
 
     (obligation0, obligation1)
+}
+
+pub async fn create_random_intents_and_obligations(
+    args: &TestArgs,
+) -> Result<(Intent, Intent, SettlementObligation, SettlementObligation)> {
+    let mut rng = thread_rng();
+    let amount_in = rng.gen_range(0..=BOUNDED_MAX_AMT);
+    let min_price = random_price();
+    let intent0 = Intent {
+        in_token: args.base_addr()?,
+        out_token: args.quote_addr()?,
+        owner: args.party0_addr(),
+        min_price,
+        amount_in,
+    };
+
+    let counterparty = args.party1_addr();
+    let (intent1, obligation0, obligation1) =
+        create_matching_intents_and_obligations(&intent0, counterparty)?;
+    Ok((intent0, intent1, obligation0, obligation1))
 }
