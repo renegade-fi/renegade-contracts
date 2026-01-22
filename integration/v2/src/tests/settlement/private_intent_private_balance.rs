@@ -8,17 +8,17 @@ use alloy::{
     signers::local::PrivateKeySigner,
 };
 use eyre::Result;
-use rand::{Rng, thread_rng};
+use rand::thread_rng;
 use renegade_abi::v2::IDarkpoolV2::{
-    self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle,
-    PublicIntentPermit, RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill,
-    SettlementBundle, SignedPermitSingle,
+    self, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle, PublicIntentPermit,
+    RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill, SettlementBundle,
+    SignedPermitSingle,
 };
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
-    test_helpers::{BOUNDED_MAX_AMT, create_random_state_wrapper, random_price},
+    test_helpers::create_random_state_wrapper,
     zk_circuits::{
         proof_linking::{
             intent_and_balance::link_sized_intent_and_balance_settlement,
@@ -62,14 +62,12 @@ use crate::{
     test_args::TestArgs,
     tests::{
         settlement::{
-            compute_fee_take, settlement_relayer_fee, settlement_relayer_fee_rate, split_obligation,
+            compute_fee_take, create_random_intents_and_obligations, fund_ring0_party,
+            fund_ring2_party, settlement_relayer_fee, settlement_relayer_fee_rate,
+            split_obligation,
         },
-        state_updates::create_balance::create_balance,
     },
-    util::{
-        deposit::fund_for_deposit, fuzzing::create_matching_intents_and_obligations,
-        merkle::find_state_element_opening, transactions::wait_for_tx_success,
-    },
+    util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
 };
 
 /// Test settling a Ring 2 match
@@ -78,7 +76,8 @@ use crate::{
 #[allow(non_snake_case)]
 async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Result<()> {
     // Build the intents and obligations
-    let (intent0, intent1, obligation0, obligation1) = create_intents_and_obligations(&args)?;
+    let (intent0, intent1, obligation0, obligation1) =
+        create_random_intents_and_obligations(&args).await?;
 
     // Fund both parties
     let (mut party0_bal, party0_bal_opening) =
@@ -201,69 +200,6 @@ integration_test_async!(test_settlement__private_intent_private_balance);
 // -----------
 // | Helpers |
 // -----------
-
-// --- Match Setup --- //
-
-/// Create intents and obligations for the match
-pub fn create_intents_and_obligations(
-    args: &TestArgs,
-) -> Result<(Intent, Intent, SettlementObligation, SettlementObligation)> {
-    let mut rng = thread_rng();
-    let amount_in = rng.gen_range(0..=BOUNDED_MAX_AMT);
-    let party0_intent = Intent {
-        in_token: args.base_addr()?,
-        out_token: args.quote_addr()?,
-        owner: args.party0_addr(),
-        min_price: random_price(),
-        amount_in,
-    };
-
-    let (counterparty_intent, obligation0, obligation1) =
-        create_matching_intents_and_obligations(&party0_intent, args.party1_addr())?;
-    Ok((party0_intent, counterparty_intent, obligation0, obligation1))
-}
-
-// --- Funding --- //
-
-/// Fund the ring-2 party with a deposit
-pub async fn fund_ring2_party(
-    signer: &PrivateKeySigner,
-    obligation: &SettlementObligation,
-    args: &TestArgs,
-) -> Result<(DarkpoolStateBalance, MerkleAuthenticationPath)> {
-    let deposit = Deposit {
-        from: signer.address(),
-        token: obligation.input_token,
-        amount: U256::from(obligation.amount_in),
-    };
-
-    fund_for_deposit(obligation.input_token, signer, &deposit, args).await?;
-    let (receipt, bal) = create_balance(signer, &deposit, args).await?;
-    let opening = find_state_element_opening(&bal, &receipt).await?;
-    Ok((bal, opening))
-}
-
-/// Fund the ring-0 party
-pub async fn fund_ring0_party(
-    signer: &PrivateKeySigner,
-    obligation: &SettlementObligation,
-    args: &TestArgs,
-) -> Result<()> {
-    // Mint the obligation amount to the given party
-    let token = obligation.input_token;
-    let amount = U256::from(obligation.amount_in);
-    let erc20 = args.erc20_from_addr_with_signer(token, signer.clone())?;
-    let mint_tx = erc20.mint(signer.address(), amount);
-    wait_for_tx_success(mint_tx).await?;
-
-    // Approve Permit2 to spend the ERC20 tokens (required for transferFrom)
-    let permit2_addr = args.permit2_addr()?;
-    let approve_tx = erc20.approve(permit2_addr, U256::MAX);
-    wait_for_tx_success(approve_tx).await?;
-
-    // Approve the darkpool to spend the tokens via Permit2
-    args.permit2_approve_darkpool(token, signer).await
-}
 
 // --- First Fill Bundle --- //
 

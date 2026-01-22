@@ -37,8 +37,8 @@ use test_helpers::{assert_eq_result, integration_test_async};
 use crate::{
     test_args::TestArgs,
     tests::settlement::{
-        compute_fee_take,
-        private_intent_private_balance::{self, create_intents_and_obligations, fund_ring2_party},
+        compute_fee_take, create_random_intents_and_obligations, fund_ring2_party,
+        private_intent_private_balance::{self},
         settlement_relayer_fee, split_obligation,
     },
     util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
@@ -48,7 +48,8 @@ use crate::{
 #[allow(non_snake_case)]
 pub async fn test_settlement__private_fill(args: TestArgs) -> Result<()> {
     // Build the intents and obligations
-    let (intent0, intent1, obligation0, obligation1) = create_intents_and_obligations(&args)?;
+    let (intent0, intent1, obligation0, obligation1) =
+        create_random_intents_and_obligations(&args).await?;
 
     // Fund both parties
     let (mut input_bal0, input_bal0_opening) =

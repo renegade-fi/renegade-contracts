@@ -4,10 +4,12 @@ use crate::{
     test_args::TestArgs,
     tests::settlement::{
         compute_fee_take as compute_fee_take_single,
-        external_match::{compute_fee_take, setup_external_match},
+        external_match::{
+            compute_fee_take, create_intent_and_bounded_match_result, setup_external_match,
+        },
+        fund_ring2_party,
         private_intent_private_balance::{
-            build_auth_bundle_first_fill, fund_ring2_party,
-            generate_existing_output_balance_validity_proof,
+            build_auth_bundle_first_fill, generate_existing_output_balance_validity_proof,
             generate_new_output_balance_validity_proof,
             generate_output_balance_settlement_linking_proof, generate_validity_proof_first_fill,
             generate_validity_proof_subsequent_fill, generate_validity_settlement_linking_proof,
@@ -40,9 +42,7 @@ use renegade_darkpool_types::{
 };
 use test_helpers::{assert_eq_result, integration_test_async};
 
-use super::private_intent_public_balance::{
-    create_intent_and_bounded_match_result, create_obligations, pick_external_party_amt_in,
-};
+use super::private_intent_public_balance::{create_obligations, pick_external_party_amt_in};
 
 /// Test settling a Ring 2 match against an external party's intent
 ///

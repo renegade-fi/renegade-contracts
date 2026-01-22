@@ -10,12 +10,13 @@ show_help() {
     echo "Start a local Anvil node, deploy contracts, and run integration tests."
     echo
     echo "Options:"
-    echo "  --test TEST_NAME    Run a specific integration test"
-    echo "  --anvil-logs       Show Anvil node logs (default: hidden)"
-    echo "  --no-tests         Skip running tests, just start Anvil and deploy contracts"
-    echo "  --v1               Run v1 integration tests (default: v2)"
-    echo "  -r, --release      Run tests in release mode"
-    echo "  -h, --help         Show this help message"
+    echo "  --test TEST_NAME              Run a specific integration test"
+    echo "  --anvil-logs                  Show Anvil node logs (default: hidden)"
+    echo "  --no-tests                    Skip running tests, just start Anvil and deploy contracts"
+    echo "  --v1                          Run v1 integration tests (default: v2)"
+    echo "  --disable-code-size-limit     Disable code size limit in forge script"
+    echo "  -r, --release                 Run tests in release mode"
+    echo "  -h, --help                    Show this help message"
     echo
     echo "Example:"
     echo "  $0                     # Run all v2 tests with hidden Anvil logs"
@@ -33,10 +34,16 @@ TEST_NAME=""
 SHOW_ANVIL_LOGS=false
 SKIP_TESTS=false
 RELEASE_MODE=false
+DISABLE_CODE_SIZE_LIMIT=false
 VERSION="v2"
 while [[ $# -gt 0 ]]; do
     case $1 in
         --test)
+            if [ -z "$2" ] || [[ "$2" == -* ]]; then
+                echo "Error: --test requires a test name"
+                echo "Run '$0 --help' for usage information"
+                exit 1
+            fi
             TEST_NAME="$2"
             shift 2
             ;;
@@ -50,6 +57,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --v1)
             VERSION="v1"
+            shift
+            ;;
+        --disable-code-size-limit)
+            DISABLE_CODE_SIZE_LIMIT=true
             shift
             ;;
         -r|--release)
@@ -93,12 +104,11 @@ sleep 2
 
 # Run the deployment script
 echo "Running deployment script for $VERSION..."
-if ! forge script script/$VERSION/DeployDev.s.sol \
-    --ffi \
-    --rpc-url http://localhost:8545 \
-    --private-key $ANVIL_PKEY \
-    --broadcast \
-    --slow; then
+FORGE_ARGS="--ffi --rpc-url http://localhost:8545 --private-key $ANVIL_PKEY --broadcast --slow"
+if [ "$DISABLE_CODE_SIZE_LIMIT" = true ]; then
+    FORGE_ARGS="$FORGE_ARGS --disable-code-size-limit"
+fi
+if ! forge script script/$VERSION/DeployDev.s.sol $FORGE_ARGS; then
     echo "Forge script failed. Cleaning up and exiting..."
     exit 1
 fi
