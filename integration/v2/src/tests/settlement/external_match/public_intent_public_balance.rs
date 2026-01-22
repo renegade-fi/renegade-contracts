@@ -2,15 +2,11 @@ use crate::{
     TestArgs, U256,
     tests::settlement::{
         external_match::{
-            compute_fee_take,
-            private_intent_public_balance::{
-                create_intent_and_bounded_match_result, create_obligations,
-                pick_external_party_amt_in,
-            },
+            compute_fee_take, create_intent_and_bounded_match_result,
+            private_intent_public_balance::{create_obligations, pick_external_party_amt_in},
             setup_external_match,
         },
-        private_intent_public_balance::fund_parties,
-        settlement_relayer_fee_rate,
+        fund_parties, settlement_relayer_fee_rate,
     },
     wait_for_tx_success,
 };
@@ -22,7 +18,7 @@ use renegade_abi::v2::IDarkpoolV2::{
 };
 use test_helpers::{assert_eq_result, integration_test_async};
 
-/// Tests settling a natively-settled public intent via external match
+/// Tests settling a natively-settled public intent via external match (ring 0)
 #[allow(non_snake_case)]
 async fn test_bounded_settlement__native_settled_public_intent(args: TestArgs) -> Result<()> {
     // Setup the external party (tx_submitter) with funding and darkpool approval
@@ -47,7 +43,8 @@ async fn test_bounded_settlement__native_settled_public_intent(args: TestArgs) -
     let payload = (
         relayer_fee_rate.clone(),
         BoundedMatchResult::from(bounded_match_result.clone()),
-    ).abi_encode();
+    )
+        .abi_encode();
 
     // Sign the payload and chain ID
     let executor_signature =

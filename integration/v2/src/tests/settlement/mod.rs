@@ -1,17 +1,31 @@
 //! Settlement tests
 
+use alloy::{
+    primitives::{Address, U160, U256, aliases::U48},
+    signers::local::PrivateKeySigner,
+};
 use eyre::Result;
 use rand::{Rng, thread_rng};
-use renegade_abi::v2::IDarkpoolV2::FeeRate;
+use renegade_abi::v2::IDarkpoolV2::{Deposit, FeeRate};
+use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::fixed_point::FixedPoint;
 use renegade_circuits::test_helpers::{BOUNDED_MAX_AMT, random_price};
 use renegade_crypto::fields::scalar_to_u128;
 use renegade_darkpool_types::{
-    fee::FeeTake, intent::Intent, settlement_obligation::SettlementObligation,
+    balance::DarkpoolStateBalance, fee::FeeTake, intent::Intent,
+    settlement_obligation::SettlementObligation,
 };
 
-use crate::test_args::TestArgs;
-use crate::util::fuzzing::create_matching_intents_and_obligations;
+use crate::{
+    test_args::TestArgs,
+    tests::state_updates::create_balance::create_balance,
+    util::{
+        deposit::fund_for_deposit,
+        fuzzing::create_matching_intents_and_obligations,
+        merkle::find_state_element_opening,
+        transactions::{send_tx, wait_for_tx_success},
+    },
+};
 
 mod external_match;
 
@@ -89,4 +103,76 @@ pub async fn create_random_intents_and_obligations(
     let (intent1, obligation0, obligation1) =
         create_matching_intents_and_obligations(&intent0, counterparty)?;
     Ok((intent0, intent1, obligation0, obligation1))
+}
+
+/// Fund the two parties with the base and quote tokens
+///
+/// Test setup will fund the parties with the tokens and approve the permit2 contract to spend the tokens.
+pub(crate) async fn fund_parties(args: &TestArgs) -> Result<()> {
+    let base = args.base_addr()?;
+    let quote = args.quote_addr()?;
+    approve_balance(base, &args.party0_signer(), args).await?;
+    approve_balance(quote, &args.party1_signer(), args).await?;
+    Ok(())
+}
+
+/// Approve a balance to be spent by the darkpool via the permit2 contract
+pub(crate) async fn approve_balance(
+    token: Address,
+    signer: &PrivateKeySigner,
+    args: &TestArgs,
+) -> Result<()> {
+    // Approve Permit2 to spend the ERC20 tokens
+    let erc20 = args.erc20_from_addr_with_signer(token, signer.clone())?;
+    let permit2_addr = args.permit2_addr()?;
+    send_tx(erc20.approve(permit2_addr, U256::MAX)).await?;
+
+    // Approve the darkpool to spend the tokens via Permit2
+    let amt = U160::MAX;
+    let permit2 = args.permit2_with_signer(signer)?;
+    let darkpool = args.darkpool_addr();
+    let expiration = U48::MAX;
+    send_tx(permit2.approve(token, darkpool, amt, expiration)).await?;
+
+    Ok(())
+}
+
+/// Fund the ring-2 party
+pub async fn fund_ring2_party(
+    signer: &PrivateKeySigner,
+    obligation: &SettlementObligation,
+    args: &TestArgs,
+) -> Result<(DarkpoolStateBalance, MerkleAuthenticationPath)> {
+    let deposit = Deposit {
+        from: signer.address(),
+        token: obligation.input_token,
+        amount: U256::from(obligation.amount_in),
+    };
+
+    fund_for_deposit(obligation.input_token, signer, &deposit, args).await?;
+    let (receipt, bal) = create_balance(signer, &deposit, args).await?;
+    let opening = find_state_element_opening(&bal, &receipt).await?;
+    Ok((bal, opening))
+}
+
+/// Fund the ring-0 party
+pub async fn fund_ring0_party(
+    signer: &PrivateKeySigner,
+    obligation: &SettlementObligation,
+    args: &TestArgs,
+) -> Result<()> {
+    // Mint the obligation amount to the given party
+    let token = obligation.input_token;
+    let amount = U256::from(obligation.amount_in);
+    let erc20 = args.erc20_from_addr_with_signer(token, signer.clone())?;
+    let mint_tx = erc20.mint(signer.address(), amount);
+    wait_for_tx_success(mint_tx).await?;
+
+    // Approve Permit2 to spend the ERC20 tokens (required for transferFrom)
+    let permit2_addr = args.permit2_addr()?;
+    let approve_tx = erc20.approve(permit2_addr, U256::MAX);
+    wait_for_tx_success(approve_tx).await?;
+
+    // Approve the darkpool to spend the tokens via Permit2
+    args.permit2_approve_darkpool(token, signer).await
 }

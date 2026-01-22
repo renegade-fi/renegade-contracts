@@ -2,10 +2,10 @@
 use crate::{
     U256,
     test_args::TestArgs,
-    tests::settlement::private_intent_private_balance::{
-        build_settlement_bundle_ring0, fund_ring0_party,
+    tests::settlement::{
+        compute_fee_take, create_random_intents_and_obligations, fund_ring0_party,
+        private_intent_private_balance::build_settlement_bundle_ring0,
     },
-    tests::settlement::{compute_fee_take, create_random_intents_and_obligations},
     wait_for_tx_success,
 };
 use eyre::Result;

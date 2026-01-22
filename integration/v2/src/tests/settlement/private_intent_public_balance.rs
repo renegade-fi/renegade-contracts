@@ -1,9 +1,6 @@
 //! Tests for settling a natively-settled private intent
 
-use alloy::{
-    primitives::{Address, U160, U256, aliases::U48},
-    signers::local::PrivateKeySigner,
-};
+use alloy::{primitives::U256, signers::local::PrivateKeySigner};
 use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::{
     ObligationBundle, PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill, SettlementBundle,
@@ -38,13 +35,10 @@ use test_helpers::{assert_eq_result, integration_test_async};
 use crate::{
     test_args::TestArgs,
     tests::settlement::{
-        compute_fee_take, create_random_intents_and_obligations, settlement_relayer_fee,
-        split_obligation,
+        compute_fee_take, create_random_intents_and_obligations, fund_parties,
+        settlement_relayer_fee, split_obligation,
     },
-    util::{
-        merkle::find_state_element_opening,
-        transactions::{send_tx, wait_for_tx_success},
-    },
+    util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
 };
 
 /// Tests settling a natively-settled private intent
@@ -172,46 +166,6 @@ integration_test_async!(test_settlement__native_settled_private_intent);
 // -----------
 // | Helpers |
 // -----------
-
-// --- Funding --- //
-
-/// Fund the two parties with the base and quote tokens
-///
-/// Test setup will fund the parties with the tokens and approve the permit2 contract to spend the tokens.
-pub(crate) async fn fund_parties(args: &TestArgs) -> Result<()> {
-    let base = args.base_addr()?;
-    let quote = args.quote_addr()?;
-    approve_balance(base, &args.party0_signer(), args).await?;
-    approve_balance(quote, &args.party1_signer(), args).await?;
-    Ok(())
-}
-
-/// Approve a balance to be spent by the darkpool via the permit2 contract
-pub(crate) async fn approve_balance(
-    token: Address,
-    signer: &PrivateKeySigner,
-    args: &TestArgs,
-) -> Result<()> {
-    // Approve Permit2 to spend the ERC20 tokens
-    let erc20 = args.erc20_from_addr_with_signer(token, signer.clone())?;
-    let permit2_addr = args.permit2_addr()?;
-    send_tx(erc20.approve(permit2_addr, U256::MAX)).await?;
-
-    // Approve the darkpool to spend the tokens via Permit2
-    let amt = U160::MAX;
-    let permit2 = args.permit2_with_signer(signer)?;
-    let darkpool = args.darkpool_addr();
-    let expiration = U48::MAX;
-    send_tx(permit2.approve(token, darkpool, amt, expiration)).await?;
-
-    Ok(())
-}
-
-// --- Intents --- //
-
-/// Create two matching intents and obligations
-///
-/// Party 0 sells the base; party1 sells the quote
 
 // --- Prover --- //
 

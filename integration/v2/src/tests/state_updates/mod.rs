@@ -7,9 +7,8 @@ use renegade_darkpool_types::{balance::DarkpoolStateBalance, intent::DarkpoolSta
 use crate::{
     test_args::TestArgs,
     tests::settlement::{
-        create_random_intents_and_obligations,
+        create_random_intents_and_obligations, fund_ring2_party,
         private_fill::{self, SubsequentFillStateElements},
-        private_intent_private_balance::fund_ring2_party,
         split_obligation,
     },
     util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},

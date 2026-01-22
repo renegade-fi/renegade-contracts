@@ -3,9 +3,12 @@
 use crate::{
     test_args::TestArgs,
     tests::settlement::{
-        external_match::{compute_fee_take, setup_external_match},
+        external_match::{
+            compute_fee_take, create_intent_and_bounded_match_result, setup_external_match,
+        },
+        fund_parties,
         private_intent_public_balance::{
-            build_auth_bundle_first_fill, build_auth_bundle_subsequent_fill, fund_parties,
+            build_auth_bundle_first_fill, build_auth_bundle_subsequent_fill,
             generate_first_fill_validity_proof, generate_linking_proof,
             generate_subsequent_fill_validity_proof,
         },
@@ -21,7 +24,6 @@ use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
-    test_helpers::{BOUNDED_MAX_AMT, create_bounded_match_result_with_balance, random_price},
     zk_circuits::settlement::intent_only_bounded_settlement::{
         self, IntentOnlyBoundedSettlementCircuit, IntentOnlyBoundedSettlementStatement,
     },
@@ -119,38 +121,6 @@ integration_test_async!(test_bounded_settlement__native_settled_private_intent);
 // -----------
 // | Helpers |
 // -----------
-
-// --- Intents --- //
-
-/// Create an intent and bounded match result constrained by a balance amount
-///
-/// This ensures `max_internal_party_amount_in <= balance_amount`, satisfying
-/// the circuit's capitalization constraint.
-///
-/// Party 0 (internal party) sells the base; Party 1 (external party) sells the quote
-///
-/// Returns the intent, bounded match result, and balance amount used
-pub(crate) fn create_intent_and_bounded_match_result(
-    args: &TestArgs,
-) -> Result<(Intent, BoundedMatchResult, u128)> {
-    let mut rng = thread_rng();
-    // Generate balance first, then intent amount >= balance for meaningful bounded results
-    let balance_amount = rng.gen_range(1..BOUNDED_MAX_AMT);
-    let amount_in = rng.gen_range(balance_amount..=BOUNDED_MAX_AMT);
-    let min_price = random_price();
-    let internal_party_intent = Intent {
-        in_token: args.base_addr()?,
-        out_token: args.quote_addr()?,
-        owner: args.party0_addr(),
-        min_price,
-        amount_in,
-    };
-
-    // Use create_bounded_match_result_with_balance to ensure max <= balance_amount
-    let bounded_match_result =
-        create_bounded_match_result_with_balance(&internal_party_intent, balance_amount);
-    Ok((internal_party_intent, bounded_match_result, balance_amount))
-}
 
 // --- Obligations --- //
 
