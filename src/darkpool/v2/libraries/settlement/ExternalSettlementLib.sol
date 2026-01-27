@@ -60,48 +60,19 @@ library ExternalSettlementLib {
             revert IDarkpoolV2.TokenNotWhitelisted(matchResult.internalPartyOutputToken);
         }
 
-        // Allocate a settlement context
-        SettlementContext memory settlementContext = allocateExternalSettlementContext(internalPartySettlementBundle);
-
-        // Validate and execute the settlement bundle
-        executeExternalSettlementBundle(
-            matchResult,
-            externalPartyAmountIn,
-            recipient,
-            internalPartySettlementBundle,
-            settlementContext,
-            contracts,
-            state
+        // Execute the settlement bundle (allocates and returns context)
+        SettlementContext memory settlementContext = executeExternalSettlementBundle(
+            matchResult, externalPartyAmountIn, recipient, internalPartySettlementBundle, contracts, state
         );
 
         // Execute the transfers necessary for settlement
-        // The helpers above will push transfers to the settlement context if necessary
         SettlementLib.executeTransfers(settlementContext, contracts);
 
         // Verify the proofs necessary for settlement
-        // The helpers above will push proofs to the settlement context if necessary
         SettlementVerification.verifySettlementProofs(settlementContext, contracts.verifier);
     }
 
     // --- Allocation --- //
-
-    /// @notice Allocate a settlement context for an external match
-    /// @dev The number of transfers and proofs for the external party is known:
-    /// (1 deposit + 3 withdrawals [output + relayer fee + protocol fee] + 0 proofs)
-    /// @param internalPartySettlementBundle The settlement bundle for the internal party
-    /// @return The allocated settlement context
-    function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
-        internal
-        pure
-        returns (SettlementContext memory)
-    {
-        uint256 numDeposits = SettlementBundleLib.getNumDeposits(internalPartySettlementBundle) + 1;
-        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(internalPartySettlementBundle) + 3;
-        uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
-        uint256 proofLinkingCapacity = SettlementBundleLib.getNumProofLinkingArguments(internalPartySettlementBundle);
-
-        return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
-    }
 
     /// @notice Allocate transfers for external party in an external match
     /// @param recipient The recipient address for the external party's withdrawal
@@ -152,47 +123,40 @@ library ExternalSettlementLib {
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs
     function executeExternalSettlementBundle(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata internalPartySettlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
+        returns (SettlementContext memory settlementContext)
     {
         SettlementBundleType bundleType = internalPartySettlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            NativeSettledPublicIntentLib.executeBoundedMatch(
-                matchResult,
-                externalPartyAmountIn,
-                externalPartyRecipient,
-                internalPartySettlementBundle,
-                settlementContext,
-                state
+            settlementContext = NativeSettledPublicIntentLib.executeBoundedMatch(
+                matchResult, externalPartyAmountIn, externalPartyRecipient, internalPartySettlementBundle, state
             );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            NativeSettledPrivateIntentLib.executeBoundedMatch(
+            settlementContext = NativeSettledPrivateIntentLib.executeBoundedMatch(
                 matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 internalPartySettlementBundle,
-                settlementContext,
                 contracts,
                 state
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
-            RenegadeSettledPrivateIntentLib.executeBoundedMatch(
+            settlementContext = RenegadeSettledPrivateIntentLib.executeBoundedMatch(
                 matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
                 internalPartySettlementBundle,
-                settlementContext,
                 contracts,
                 state
             );

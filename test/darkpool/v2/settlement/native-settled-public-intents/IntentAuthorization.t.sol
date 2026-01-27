@@ -42,11 +42,7 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         external
         returns (SettlementContext memory)
     {
-        SettlementContext memory settlementContext = _createSettlementContext();
-        NativeSettledPublicIntentLib.execute(
-            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, darkpoolState
-        );
-        return settlementContext;
+        return NativeSettledPublicIntentLib.execute(PartyId.PARTY_0, obligationBundle, bundle, darkpoolState);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata

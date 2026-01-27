@@ -54,6 +54,35 @@ library SettlementTransfersListLib {
         list.transfers[list.nextIndex] = transfer;
         ++list.nextIndex;
     }
+
+    /// @notice Merge two transfer lists into a new list
+    /// @dev Creates a new list with capacity for both inputs and copies all elements
+    /// @param a The first list to merge
+    /// @param b The second list to merge
+    /// @return result A new list containing all elements from both inputs
+    function merge(
+        SettlementTransfersList memory a,
+        SettlementTransfersList memory b
+    )
+        internal
+        pure
+        returns (SettlementTransfersList memory result)
+    {
+        uint256 totalLength = a.nextIndex + b.nextIndex;
+        result = newList(totalLength);
+
+        // Copy elements from list a
+        for (uint256 i = 0; i < a.nextIndex; ++i) {
+            result.transfers[i] = a.transfers[i];
+        }
+
+        // Copy elements from list b
+        for (uint256 i = 0; i < b.nextIndex; ++i) {
+            result.transfers[a.nextIndex + i] = b.transfers[i];
+        }
+
+        result.nextIndex = totalLength;
+    }
 }
 
 /// @notice A list of deposits and withdrawals to settle after a match
@@ -107,5 +136,24 @@ library SettlementTransfersLib {
     /// @param withdrawal The withdrawal to push
     function pushWithdrawal(SettlementTransfers memory transfers, SimpleTransfer memory withdrawal) internal pure {
         SettlementTransfersListLib.push(transfers.withdrawals, withdrawal);
+    }
+
+    /// @notice Merge two settlement transfers into a new one
+    /// @dev Creates a new SettlementTransfers with combined capacity and copies all elements from both inputs
+    /// @param a The first transfers to merge
+    /// @param b The second transfers to merge
+    /// @return result A new SettlementTransfers containing all elements from both inputs
+    function merge(
+        SettlementTransfers memory a,
+        SettlementTransfers memory b
+    )
+        internal
+        pure
+        returns (SettlementTransfers memory result)
+    {
+        result = SettlementTransfers({
+            deposits: SettlementTransfersListLib.merge(a.deposits, b.deposits),
+            withdrawals: SettlementTransfersListLib.merge(a.withdrawals, b.withdrawals)
+        });
     }
 }

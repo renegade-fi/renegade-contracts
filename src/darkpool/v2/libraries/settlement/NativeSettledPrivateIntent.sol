@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     PrivateIntentPublicBalanceBundle,
     PrivateIntentPublicBalanceBundleLib,
@@ -42,21 +42,29 @@ library NativeSettledPrivateIntentLib {
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context: 1 deposit, 3 withdrawals, 2 proofs, 1 proof linking argument
+        settlementContext = SettlementContextLib.newContext(
+            SettlementBundleLib.getNumDeposits(settlementBundle),
+            SettlementBundleLib.getNumWithdrawals(settlementBundle),
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         if (settlementBundle.isFirstFill) {
             executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         } else {
@@ -69,20 +77,31 @@ library NativeSettledPrivateIntentLib {
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     function executeBoundedMatch(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context for both internal and external party:
+        // Internal: 1 deposit, 3 withdrawals; External: 1 deposit, 3 withdrawals
+        uint256 numDeposits = SettlementBundleLib.getNumDeposits(settlementBundle) + 1;
+        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(settlementBundle) + 3;
+        settlementContext = SettlementContextLib.newContext(
+            numDeposits,
+            numWithdrawals,
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         if (settlementBundle.isFirstFill) {
             executeBoundedMatchFirstFill(
                 matchResult,

@@ -25,12 +25,9 @@ contract RenegadeSettledPrivateFillAuthorizationTest is RenegadeSettledPrivateFi
         external
         returns (SettlementContext memory)
     {
-        SettlementContext memory settlementContext = _createSettlementContext();
         DarkpoolContracts memory contracts = getSettlementContracts();
-        SettlementLib.executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, contracts, darkpoolState
-        );
-        return settlementContext;
+        return
+            SettlementLib.executeSettlementBundle(PartyId.PARTY_0, obligationBundle, bundle, contracts, darkpoolState);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata

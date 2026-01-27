@@ -63,17 +63,25 @@ library NativeSettledPublicIntentLib {
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context: 1 deposit, 3 withdrawals, 0 proofs, 0 proof linking arguments
+        settlementContext = SettlementContextLib.newContext(
+            SettlementBundleLib.getNumDeposits(settlementBundle),
+            SettlementBundleLib.getNumWithdrawals(settlementBundle),
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
@@ -89,18 +97,30 @@ library NativeSettledPublicIntentLib {
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     function executeBoundedMatch(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context for both internal and external party:
+        // Internal: 1 deposit, 3 withdrawals; External: 1 deposit, 3 withdrawals
+        // Total: 2 deposits, 6 withdrawals, 0 proofs, 0 proof linking arguments
+        uint256 numDeposits = SettlementBundleLib.getNumDeposits(settlementBundle) + 1;
+        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(settlementBundle) + 3;
+        settlementContext = SettlementContextLib.newContext(
+            numDeposits,
+            numWithdrawals,
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
