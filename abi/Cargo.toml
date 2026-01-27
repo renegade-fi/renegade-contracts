@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = ["v2", "v2-relayer-types", "v2-auth-helpers"]
 v1 = []
 v2 = []
 transfer-auth = ["alloy/rand"]

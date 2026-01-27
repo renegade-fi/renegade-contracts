@@ -48,7 +48,7 @@ async fn test_bounded_settlement__native_settled_public_intent(args: TestArgs) -
 
     // Sign the payload and chain ID
     let executor_signature =
-        SignatureWithNonce::sign(payload.as_slice(), chain_id, &executor_signer)?;
+        SignatureWithNonce::sign(payload.as_slice(), chain_id, executor_signer)?;
 
     // Generate the auth bundle
     let permit = PublicIntentPermit {
