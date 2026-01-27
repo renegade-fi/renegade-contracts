@@ -5,7 +5,7 @@ use eyre::{eyre, Result};
 use renegade_circuit_types::elgamal::{DecryptionKey, EncryptionKey};
 use renegade_circuit_types::fixed_point::FixedPoint;
 use renegade_crypto::fields::jubjub_to_scalar;
-use renegade_util::hex::scalar_to_hex_string;
+use renegade_util::hex::{scalar_to_hex_string, jubjub_to_hex_string};
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
@@ -236,9 +236,8 @@ fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
 
     // Get the fee encryption key
     let enc_key = get_fee_key(args.fee_dec_key.as_deref())?;
-    println!("Fee encryption key");
-    println!("\tx: {}", enc_key.x);
-    println!("\ty: {}", enc_key.y);
+    let hex_str = jubjub_to_hex_string(&enc_key);
+    println!("Fee encryption key: {}", hex_str);
 
     // Convert the protocol fee rate to a fixed point value
     let protocol_fee_fp = FixedPoint::from_f64_round_down(fee_rate);
