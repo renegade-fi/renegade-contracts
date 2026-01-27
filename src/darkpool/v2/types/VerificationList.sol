@@ -70,6 +70,39 @@ library VerificationListLib {
         list.vks[list.nextIndex] = vk;
         ++list.nextIndex;
     }
+
+    /// @notice Merge two verification lists into a new list
+    /// @dev Creates a new list with capacity for both inputs and copies all elements
+    /// @param a The first list to merge
+    /// @param b The second list to merge
+    /// @return result A new list containing all elements from both inputs
+    function merge(
+        VerificationList memory a,
+        VerificationList memory b
+    )
+        internal
+        pure
+        returns (VerificationList memory result)
+    {
+        uint256 totalLength = a.nextIndex + b.nextIndex;
+        result = newList(totalLength);
+
+        // Copy elements from list a
+        for (uint256 i = 0; i < a.nextIndex; ++i) {
+            result.proofs[i] = a.proofs[i];
+            result.publicInputs[i] = a.publicInputs[i];
+            result.vks[i] = a.vks[i];
+        }
+
+        // Copy elements from list b
+        for (uint256 i = 0; i < b.nextIndex; ++i) {
+            result.proofs[a.nextIndex + i] = b.proofs[i];
+            result.publicInputs[a.nextIndex + i] = b.publicInputs[i];
+            result.vks[a.nextIndex + i] = b.vks[i];
+        }
+
+        result.nextIndex = totalLength;
+    }
 }
 
 /// @title Proof Linking List
@@ -116,5 +149,34 @@ library ProofLinkingListLib {
         }
         list.instances[list.nextIndex] = instance;
         ++list.nextIndex;
+    }
+
+    /// @notice Merge two proof linking lists into a new list
+    /// @dev Creates a new list with capacity for both inputs and copies all elements
+    /// @param a The first list to merge
+    /// @param b The second list to merge
+    /// @return result A new list containing all elements from both inputs
+    function merge(
+        ProofLinkingList memory a,
+        ProofLinkingList memory b
+    )
+        internal
+        pure
+        returns (ProofLinkingList memory result)
+    {
+        uint256 totalLength = a.nextIndex + b.nextIndex;
+        result = newList(totalLength);
+
+        // Copy elements from list a
+        for (uint256 i = 0; i < a.nextIndex; ++i) {
+            result.instances[i] = a.instances[i];
+        }
+
+        // Copy elements from list b
+        for (uint256 i = 0; i < b.nextIndex; ++i) {
+            result.instances[a.nextIndex + i] = b.instances[i];
+        }
+
+        result.nextIndex = totalLength;
     }
 }

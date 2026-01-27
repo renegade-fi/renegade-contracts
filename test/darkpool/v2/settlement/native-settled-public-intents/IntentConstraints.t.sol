@@ -33,9 +33,9 @@ contract IntentConstraintsTest is PublicIntentSettlementTestUtils {
         SettlementBundle calldata bundle
     )
         external
+        returns (SettlementContext memory)
     {
-        SettlementContext memory settlementContext = _createSettlementContext();
-        NativeSettledPublicIntentLib.execute(partyId, obligationBundle, bundle, settlementContext, darkpoolState);
+        return NativeSettledPublicIntentLib.execute(partyId, obligationBundle, bundle, darkpoolState);
     }
 
     // ---------

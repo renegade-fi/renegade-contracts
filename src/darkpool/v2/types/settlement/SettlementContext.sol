@@ -130,4 +130,26 @@ library SettlementContextLib {
     {
         context.proofLinkingArguments.push(proofLinkingArgument);
     }
+
+    // --- Merge --- //
+
+    /// @notice Merge two settlement contexts into a new context
+    /// @dev Creates a new context with combined capacity and copies all elements from both inputs
+    /// @param a The first context to merge
+    /// @param b The second context to merge
+    /// @return result A new context containing all elements from both inputs
+    function merge(
+        SettlementContext memory a,
+        SettlementContext memory b
+    )
+        internal
+        pure
+        returns (SettlementContext memory result)
+    {
+        result = SettlementContext({
+            transfers: SettlementTransfersLib.merge(a.transfers, b.transfers),
+            verifications: VerificationListLib.merge(a.verifications, b.verifications),
+            proofLinkingArguments: ProofLinkingListLib.merge(a.proofLinkingArguments, b.proofLinkingArguments)
+        });
+    }
 }

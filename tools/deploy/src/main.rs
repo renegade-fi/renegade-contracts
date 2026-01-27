@@ -5,7 +5,7 @@ use eyre::{eyre, Result};
 use renegade_circuit_types::elgamal::{DecryptionKey, EncryptionKey};
 use renegade_circuit_types::fixed_point::FixedPoint;
 use renegade_crypto::fields::jubjub_to_scalar;
-use renegade_util::hex::{scalar_to_hex_string, jubjub_to_hex_string};
+use renegade_util::hex::{jubjub_to_hex_string, scalar_to_hex_string};
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
@@ -139,6 +139,10 @@ struct DeployDarkpoolArgs {
     /// Optional fee decryption key as hex string
     #[arg(long)]
     fee_dec_key: Option<String>,
+
+    /// Deploy the V1 version of the Darkpool (V2 is deployed by default)
+    #[arg(long)]
+    v1: bool,
 }
 
 /// Arguments for deploying GasSponsor contract
@@ -218,6 +222,10 @@ fn main() -> Result<()> {
 
 /// Deploy the Darkpool contracts
 fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
+    // Determine which version to deploy
+    let version = if args.v1 { "v1" } else { "v2" };
+    println!("Deploying {version} Darkpool");
+
     // Prompt for required arguments if not provided
     prompt_for_darkpool_args(&mut args)?;
 
@@ -228,25 +236,32 @@ fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
     let fee_recipient = args.fee_recipient.unwrap();
     let fee_rate = args.protocol_fee_rate.unwrap();
     println!("Deploying Darkpool to RPC URL: {}", args.common.rpc_url);
-    println!("\tOwner address: {}", owner);
-    println!("\tPermit2 address: {}", permit2);
-    println!("\tWETH address: {}", weth);
-    println!("\tFee recipient: {}", fee_recipient);
-    println!("\tProtocol fee rate: {}", fee_rate);
+    println!("\tOwner address: {owner}");
+    println!("\tPermit2 address: {permit2}");
+    println!("\tWETH address: {weth}");
+    println!("\tFee recipient: {fee_recipient}");
+    println!("\tProtocol fee rate: {fee_rate}");
 
     // Get the fee encryption key
     let enc_key = get_fee_key(args.fee_dec_key.as_deref())?;
     let hex_str = jubjub_to_hex_string(&enc_key);
-    println!("Fee encryption key: {}", hex_str);
+    println!("Fee encryption key: {hex_str}");
 
     // Convert the protocol fee rate to a fixed point value
     let protocol_fee_fp = FixedPoint::from_f64_round_down(fee_rate);
     let protocol_fee_repr = protocol_fee_fp.repr;
 
+    // Select the deploy script based on version
+    let deploy_script = if args.v1 {
+        "script/v1/Deploy.s.sol:DeployScript"
+    } else {
+        "script/v2/Deploy.s.sol:DeployScript"
+    };
+
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/v1/Deploy.s.sol:DeployScript") // Specify contract name with path
+        .arg(deploy_script)
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -259,6 +274,8 @@ fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
         .arg(&permit2)
         .arg(&weth)
         .arg("--ffi") // Add FFI flag to allow external commands (huffc)
+        .arg("--resume")
+        .arg("--slow")
         .arg("--broadcast") // Always use broadcast
         .arg("--private-key")
         .arg(&args.common.private_key)

@@ -50,21 +50,29 @@ library RenegadeSettledPrivateIntentLib {
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context: 0 deposits, 2 withdrawals (fees), 3 proofs, 2 proof linking arguments
+        settlementContext = SettlementContextLib.newContext(
+            SettlementBundleLib.getNumDeposits(settlementBundle),
+            SettlementBundleLib.getNumWithdrawals(settlementBundle),
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         if (settlementBundle.isFirstFill) {
             executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         } else {
@@ -170,9 +178,9 @@ library RenegadeSettledPrivateIntentLib {
     /// @param externalPartyAmountIn The input amount for the external party
     /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function executeBoundedMatch(
@@ -180,12 +188,23 @@ library RenegadeSettledPrivateIntentLib {
         uint256 externalPartyAmountIn,
         address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context for both internal and external party:
+        // Internal: 0 deposits, 2 withdrawals (fees); External: 1 deposit, 3 withdrawals
+        uint256 numDeposits = SettlementBundleLib.getNumDeposits(settlementBundle) + 1;
+        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(settlementBundle) + 3;
+        settlementContext = SettlementContextLib.newContext(
+            numDeposits,
+            numWithdrawals,
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         if (settlementBundle.isFirstFill) {
             executeBoundedMatchFirstFill(
                 matchResult,
@@ -235,11 +254,7 @@ library RenegadeSettledPrivateIntentLib {
 
         // 1. Validate the bounded match result settlement
         PrivateIntentPrivateBalanceBoundedLib.verifySettlement(
-            matchResult,
-            bundle.settlementStatement,
-            bundle.settlementProof,
-            contracts,
-            settlementContext
+            matchResult, bundle.settlementStatement, bundle.settlementProof, contracts, settlementContext
         );
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
@@ -298,11 +313,7 @@ library RenegadeSettledPrivateIntentLib {
 
         // 1. Validate the obligation settlement
         PrivateIntentPrivateBalanceBoundedLib.verifySettlement(
-            matchResult,
-            bundle.settlementStatement,
-            bundle.settlementProof,
-            contracts,
-            settlementContext
+            matchResult, bundle.settlementStatement, bundle.settlementProof, contracts, settlementContext
         );
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
