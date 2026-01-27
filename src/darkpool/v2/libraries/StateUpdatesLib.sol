@@ -113,11 +113,14 @@ library StateUpdatesLib {
             state.spendNullifier(intentNullifier);
         }
 
-        // 5. Zero out the amount remaining (no-op pre-fill, actual effect post-fill)
+        // 5. Get the amount remaining before zeroing (for event emission)
+        uint256 amountRemaining = state.getOpenIntentAmountRemaining(intentHash);
+
+        // 6. Zero out the amount remaining (no-op pre-fill, actual effect post-fill)
         state.setOpenIntentAmountRemaining(intentHash, 0);
 
-        // 6. Emit cancellation event
-        emit IDarkpoolV2.PublicOrderCancelled(intentHash, owner);
+        // 7. Emit cancellation event with amount that was remaining
+        emit IDarkpoolV2.PublicIntentCancelled(intentHash, owner, amountRemaining);
     }
 
     /// @notice Revoke a nonce to invalidate previously signed bundles

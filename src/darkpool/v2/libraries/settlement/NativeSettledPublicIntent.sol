@@ -328,8 +328,17 @@ library NativeSettledPublicIntentLib {
         settlementContext.pushWithdrawal(relayerWithdrawal);
         settlementContext.pushWithdrawal(protocolWithdrawal);
 
-        // Update the amount remaining on the intent
-        state.decrementOpenIntentAmountRemaining(intentHash, obligation.amountIn);
+        // Update the amount remaining on the intent and emit events
+        (uint256 previousAmount, uint256 newAmount) =
+            state.decrementOpenIntentAmountRemaining(intentHash, obligation.amountIn);
+
+        // Emit PublicIntentCreated on first fill (when previous amount equals initial intent amount)
+        if (previousAmount == intent.amountIn) {
+            emit IDarkpoolV2.PublicIntentCreated(intentHash);
+        }
+
+        // Emit PublicIntentUpdated on every fill
+        emit IDarkpoolV2.PublicIntentUpdated(intentHash, intent.owner, obligation.amountIn, newAmount);
     }
 
     /// @notice Compute the fee takes for the match
