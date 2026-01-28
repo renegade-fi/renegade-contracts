@@ -143,6 +143,10 @@ struct DeployDarkpoolArgs {
     /// Deploy the V1 version of the Darkpool (V2 is deployed by default)
     #[arg(long)]
     v1: bool,
+
+    /// Pass --resume to forge
+    #[arg(long)]
+    resume: bool,
 }
 
 /// Arguments for deploying GasSponsor contract
@@ -274,12 +278,15 @@ fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
         .arg(&permit2)
         .arg(&weth)
         .arg("--ffi") // Add FFI flag to allow external commands (huffc)
-        .arg("--resume")
         .arg("--slow")
         .arg("--broadcast") // Always use broadcast
         .arg("--private-key")
         .arg(&args.common.private_key)
         .arg(format!("-{}", args.common.verbosity));
+
+    if args.resume {
+        cmd.arg("--resume");
+    }
 
     // Execute the command
     run_command(cmd)?;
