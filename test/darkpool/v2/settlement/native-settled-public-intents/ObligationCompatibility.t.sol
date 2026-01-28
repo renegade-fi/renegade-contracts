@@ -20,12 +20,11 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _validateObligationBundle(ObligationBundle calldata bundle) public {
-        SettlementContext memory settlementContext = _createSettlementContext();
+    function _validateObligationBundle(ObligationBundle calldata bundle) public returns (SettlementContext memory) {
         // Create a dummy verifier since it's not used in validateObligationBundle
         IVerifier dummyVerifier = new TestVerifierV2();
         DarkpoolContracts memory contracts = getSettlementContracts(dummyVerifier);
-        SettlementLib.validateObligationBundle(bundle, settlementContext, darkpoolState, contracts);
+        return SettlementLib.validateObligationBundle(bundle, darkpoolState, contracts);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata

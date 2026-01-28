@@ -40,12 +40,9 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         external
         returns (SettlementContext memory)
     {
-        SettlementContext memory settlementContext = _createSettlementContext();
         DarkpoolContracts memory contracts = getSettlementContracts();
-        SettlementLib.executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, contracts, darkpoolState
-        );
-        return settlementContext;
+        return
+            SettlementLib.executeSettlementBundle(PartyId.PARTY_0, obligationBundle, bundle, contracts, darkpoolState);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
@@ -94,9 +91,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidIntentCommitmentSignature_wrongSigner() public {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(
-                true /* isFirstFill */
-            );
+            createSamplePrivateIntentBundle(true /* isFirstFill */ );
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
             abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
@@ -136,9 +131,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidMerkleRoot() public {
         // Create bundle for subsequent fill (not first fill)
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(
-                false /* isFirstFill */
-            );
+            createSamplePrivateIntentBundle(false /* isFirstFill */ );
 
         // Decode the bundle data
         PrivateIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));

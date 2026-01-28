@@ -69,19 +69,18 @@ library SettlementLib {
     )
         external
     {
-        // 1. Allocate a settlement context
-        SettlementContext memory settlementContext =
-            allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
+        // 1. Validate obligations and get context (contains settlement proof for private obligations)
+        SettlementContext memory obligationContext = validateObligationBundle(obligationBundle, state, contracts);
 
-        // 2. Validate that the settlement obligations are compatible with one another
-        validateObligationBundle(obligationBundle, settlementContext, state, contracts);
+        // 2. Execute settlement bundles for each party (each allocates and returns its own context)
+        SettlementContext memory party0Context =
+            executeSettlementBundle(PartyId.PARTY_0, obligationBundle, party0SettlementBundle, contracts, state);
+        SettlementContext memory party1Context =
+            executeSettlementBundle(PartyId.PARTY_1, obligationBundle, party1SettlementBundle, contracts, state);
 
-        // 3. Validate and authorize the settlement bundles
-        executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, contracts, state
-        );
-        executeSettlementBundle(
-            PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, contracts, state
+        // 3. Merge all contexts: obligation + party0 + party1
+        SettlementContext memory settlementContext = SettlementContextLib.merge(
+            obligationContext, SettlementContextLib.merge(party0Context, party1Context)
         );
 
         // 4. Execute the transfers necessary for settlement
@@ -91,57 +90,28 @@ library SettlementLib {
         SettlementVerification.verifySettlementProofs(settlementContext, contracts.verifier);
     }
 
-    // --- Allocation --- //
-
-    /// @notice Allocate a settlement context for the match settlement
-    /// @dev This context allows settlement validation logic to dynamically register transfers and proofs.
-    /// We execute all operations at the end in a single pass.
-    /// Dynamically pushing to this context allows handlers to stay specific to the
-    /// type of `SettlementBundle` they are operating on.
-    /// @param party0SettlementBundle The settlement bundle for the first party
-    /// @param party1SettlementBundle The settlement bundle for the second party
-    /// @return The allocated settlement context
-    function allocateSettlementContext(
-        SettlementBundle calldata party0SettlementBundle,
-        SettlementBundle calldata party1SettlementBundle
-    )
-        internal
-        pure
-        returns (SettlementContext memory)
-    {
-        uint256 numDeposits = SettlementBundleLib.getNumDeposits(party0SettlementBundle)
-            + SettlementBundleLib.getNumDeposits(party1SettlementBundle);
-        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(party0SettlementBundle)
-            + SettlementBundleLib.getNumWithdrawals(party1SettlementBundle);
-        uint256 proofCapacity = SettlementBundleLib.getNumProofs(party0SettlementBundle)
-            + SettlementBundleLib.getNumProofs(party1SettlementBundle);
-        uint256 proofLinkingCapacity = SettlementBundleLib.getNumProofLinkingArguments(party0SettlementBundle)
-            + SettlementBundleLib.getNumProofLinkingArguments(party1SettlementBundle);
-
-        return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
-    }
-
     // --- Obligation Compatibility --- //
 
     /// @notice Validate an obligation bundle
     /// @param obligationBundle The obligation bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     /// @param contracts The contract references needed for settlement
+    /// @return settlementContext The settlement context (empty for public, contains proof for private)
     function validateObligationBundle(
         ObligationBundle calldata obligationBundle,
-        SettlementContext memory settlementContext,
         DarkpoolState storage state,
         DarkpoolContracts memory contracts
     )
         internal
         view
+        returns (SettlementContext memory settlementContext)
     {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
-            // Validate a public obligation bundle
+            // Validate a public obligation bundle - returns empty context
             validatePublicObligationBundle(obligationBundle, state);
+            settlementContext = SettlementContextLib.newContext(0, 0, 0, 0);
         } else if (obligationBundle.obligationType == ObligationType.PRIVATE) {
-            validatePrivateObligationBundle(obligationBundle, settlementContext, state, contracts.vkeys);
+            settlementContext = validatePrivateObligationBundle(obligationBundle, state, contracts.vkeys);
         } else {
             revert IDarkpoolV2.InvalidSettlementBundleType();
         }
@@ -191,17 +161,17 @@ library SettlementLib {
 
     /// @notice Validate a private obligation bundle
     /// @param obligationBundle The obligation bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     /// @param vkeys The contract storing the verification keys
+    /// @return settlementContext The settlement context containing the settlement proof
     function validatePrivateObligationBundle(
         ObligationBundle calldata obligationBundle,
-        SettlementContext memory settlementContext,
         DarkpoolState storage state,
         IVkeys vkeys
     )
         internal
         view
+        returns (SettlementContext memory settlementContext)
     {
         // Decode the obligations
         PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
@@ -216,6 +186,9 @@ library SettlementLib {
             revert IDarkpoolV2.InvalidProtocolFee();
         }
 
+        // Allocate context for one proof (the settlement proof)
+        settlementContext = SettlementContextLib.newContext(0, 0, 1, 0);
+
         // Append the settlement proof to the context for verification
         BN254.ScalarField[] memory publicInputs = obligation.statement.statementSerialize();
         VerificationKey memory vk = vkeys.intentAndBalancePrivateSettlementKeys();
@@ -228,36 +201,33 @@ library SettlementLib {
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle for the trade
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs
     /// @dev This function validates and executes the settlement bundle based on the bundle type
     /// @dev See the library files in this directory for type-specific execution & validation logic.
     function executeSettlementBundle(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
+        returns (SettlementContext memory settlementContext)
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            NativeSettledPublicIntentLib.execute(partyId, obligationBundle, settlementBundle, settlementContext, state);
+            settlementContext = NativeSettledPublicIntentLib.execute(partyId, obligationBundle, settlementBundle, state);
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            NativeSettledPrivateIntentLib.execute(
-                partyId, obligationBundle, settlementBundle, settlementContext, contracts, state
-            );
+            settlementContext =
+                NativeSettledPrivateIntentLib.execute(partyId, obligationBundle, settlementBundle, contracts, state);
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
-            RenegadeSettledPrivateIntentLib.execute(
-                partyId, obligationBundle, settlementBundle, settlementContext, contracts, state
-            );
+            settlementContext =
+                RenegadeSettledPrivateIntentLib.execute(partyId, obligationBundle, settlementBundle, contracts, state);
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL) {
-            RenegadeSettledPrivateFillLib.execute(
-                partyId, obligationBundle, settlementBundle, settlementContext, contracts, state
-            );
+            settlementContext =
+                RenegadeSettledPrivateFillLib.execute(partyId, obligationBundle, settlementBundle, contracts, state);
         } else {
             revert IDarkpoolV2.InvalidSettlementBundleType();
         }

@@ -186,14 +186,19 @@ library DarkpoolStateLib {
     /// @param state The darkpool state
     /// @param intentHash The hash of the intent
     /// @param amount The amount to decrement the amount remaining by
+    /// @return previousAmount The amount remaining before the decrement
+    /// @return newAmount The amount remaining after the decrement
     function decrementOpenIntentAmountRemaining(
         DarkpoolState storage state,
         bytes32 intentHash,
         uint256 amount
     )
         internal
+        returns (uint256 previousAmount, uint256 newAmount)
     {
-        state.openPublicIntents[intentHash] -= amount;
+        previousAmount = state.openPublicIntents[intentHash];
+        newAmount = previousAmount - amount;
+        state.openPublicIntents[intentHash] = newAmount;
     }
 
     /// @notice Spend a signature nonce

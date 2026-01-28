@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.24;
 
-import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     RenegadeSettledPrivateFirstFillBundle,
     RenegadeSettledPrivateFillBundle
@@ -9,7 +9,7 @@ import {
 import {
     ObligationBundle, ObligationLib, PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { RenegadeSettledPrivateFillLib as RenegadeSettledPrivateFillBundleLib } from
@@ -39,19 +39,27 @@ library RenegadeSettledPrivateFillLib {
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return settlementContext The settlement context containing transfers and proofs to execute
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        external
+        returns (SettlementContext memory settlementContext)
     {
+        // Allocate context: 0 deposits, 0 withdrawals (all Merklized), 3 proofs, 2 proof linking arguments
+        settlementContext = SettlementContextLib.newContext(
+            SettlementBundleLib.getNumDeposits(settlementBundle),
+            SettlementBundleLib.getNumWithdrawals(settlementBundle),
+            SettlementBundleLib.getNumProofs(settlementBundle),
+            SettlementBundleLib.getNumProofLinkingArguments(settlementBundle)
+        );
+
         if (settlementBundle.isFirstFill) {
             executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         } else {

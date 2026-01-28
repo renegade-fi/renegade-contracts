@@ -146,10 +146,27 @@ interface IDarkpoolV2 {
     /// @notice Emitted when a new recovery ID is registered on-chain
     /// @param recoveryId The recovery ID that was registered
     event RecoveryIdRegistered(BN254.ScalarField indexed recoveryId);
-    /// @notice Emitted when a public order is cancelled
-    /// @param orderHash The hash of the cancelled order
-    /// @param owner The owner who cancelled the order
-    event PublicOrderCancelled(bytes32 indexed orderHash, address indexed owner);
+    /// @notice Emitted on the first fill of a public intent, signaling its creation
+    /// @param intentHash The hash identifying this intent (key in openPublicIntents mapping)
+    event PublicIntentCreated(bytes32 indexed intentHash);
+
+    /// @notice Emitted on every fill of a public intent (partial or full)
+    /// @param intentHash The hash identifying this intent (key in openPublicIntents mapping)
+    /// @param owner The EOA address that owns this intent
+    /// @param fillAmount The amount filled in this settlement
+    /// @param amountRemaining The remaining amount after this fill (0 = fully filled)
+    event PublicIntentUpdated(
+        bytes32 indexed intentHash,
+        address indexed owner,
+        uint256 fillAmount,
+        uint256 amountRemaining
+    );
+
+    /// @notice Emitted when a public intent is explicitly cancelled
+    /// @param intentHash The hash identifying this intent
+    /// @param owner The EOA address that owns this intent
+    /// @param amountRemaining The amount that was remaining (unfilled) at cancellation
+    event PublicIntentCancelled(bytes32 indexed intentHash, address indexed owner, uint256 amountRemaining);
     /// @notice Emitted when a nonce is revoked
     /// @param revokedNonce The nonce that was revoked
     /// @param owner The owner who revoked the nonce
