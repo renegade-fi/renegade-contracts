@@ -14,18 +14,18 @@ renegade-abi = { package = "abi", path = "../../abi", features = [
     "v2-auth-helpers",
     "transfer-auth",
 ] }
-renegade-account-types = { package = "types-account", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2" }
-renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2" }
-renegade-darkpool-types = { package = "darkpool-types", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2" }
-renegade-circuits = { package = "circuits-core", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2", features = [
+renegade-account-types = { package = "types-account", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-darkpool-types = { package = "darkpool-types", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-circuits = { package = "circuits-core", git = "https://github.com/renegade-fi/renegade.git", features = [
     "test_helpers",
 ] }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2" }
-renegade-crypto = { package = "crypto", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2" }
-renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2", default-features = false, features = [
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-crypto = { package = "crypto", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade.git", default-features = false, features = [
     "blockchain",
 ] }
-test-helpers = { package = "test-helpers", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/relayer-v2" }
+test-helpers = { package = "test-helpers", git = "https://github.com/renegade-fi/renegade.git" }
 
 # === Test Harness Dependencies === #
 clap = { version = "4.0", features = ["derive"] }
