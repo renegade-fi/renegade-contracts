@@ -55,7 +55,7 @@ mod tests {
     /// The height of the Merkle tree
     const TEST_TREE_HEIGHT: usize = 10;
     /// The number of leaves in the tree
-    const N_LEAVES: usize = 1 << (TEST_TREE_HEIGHT - 1);
+    const N_LEAVES: usize = 1 << TEST_TREE_HEIGHT;
 
     /// Test the Merkle helper against an arkworks tree
     #[test]
