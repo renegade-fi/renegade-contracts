@@ -2827,6 +2827,22 @@
   },
   {
     "type": "error",
+    "name": "InvalidObligationAmountIn",
+    "inputs": [
+      {
+        "name": "amountRemaining",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidOrderCancellationSignature",
     "inputs": []
   },

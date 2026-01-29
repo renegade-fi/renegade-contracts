@@ -79,9 +79,8 @@ library SettlementLib {
             executeSettlementBundle(PartyId.PARTY_1, obligationBundle, party1SettlementBundle, contracts, state);
 
         // 3. Merge all contexts: obligation + party0 + party1
-        SettlementContext memory settlementContext = SettlementContextLib.merge(
-            obligationContext, SettlementContextLib.merge(party0Context, party1Context)
-        );
+        SettlementContext memory settlementContext =
+            SettlementContextLib.merge(obligationContext, SettlementContextLib.merge(party0Context, party1Context));
 
         // 4. Execute the transfers necessary for settlement
         executeTransfers(settlementContext, contracts);

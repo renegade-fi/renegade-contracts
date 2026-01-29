@@ -76,6 +76,8 @@ interface IDarkpoolV2 {
     error IncompatibleAmounts();
     /// @notice Thrown when an obligation is invalid
     error InvalidObligation();
+    /// @notice Thrown when the input amount on the obligation is invalid
+    error InvalidObligationAmountIn(uint256 amountRemaining, uint256 amountIn);
     /// @notice Thrown when the settlement bundle type is invalid
     error InvalidSettlementBundleType();
     /// @notice Thrown when the output balance bundle type is invalid

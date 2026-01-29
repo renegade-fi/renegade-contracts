@@ -6192,7 +6192,7 @@
         "name": "noteCommitment",
         "type": "uint256",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "BN254.ScalarField"
       }
     ],
     "anonymous": false
