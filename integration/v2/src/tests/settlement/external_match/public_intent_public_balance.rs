@@ -39,16 +39,10 @@ async fn test_bounded_settlement__native_settled_public_intent(args: TestArgs) -
     let chain_id = args.chain_id().await?;
     let executor_signer = &args.relayer_signer;
 
-    // ABI-encode the payload to sign
-    let payload = (
-        relayer_fee_rate.clone(),
-        BoundedMatchResult::from(bounded_match_result.clone()),
-    )
-        .abi_encode();
-
-    // Sign the payload and chain ID
+    // Generate an executor signature for the bounded match result
+    let match_res = BoundedMatchResult::from(bounded_match_result.clone());
     let executor_signature =
-        SignatureWithNonce::sign(payload.as_slice(), chain_id, executor_signer)?;
+        match_res.create_executor_signature(relayer_fee_rate.clone(), chain_id, executor_signer)?;
 
     // Generate the auth bundle
     let permit = PublicIntentPermit {

@@ -347,7 +347,7 @@ impl BoundedMatchResult {
         Self {
             internalPartyInputToken: internal_party_input_token,
             internalPartyOutputToken: internal_party_output_token,
-            price: price,
+            price,
             minInternalPartyAmountIn: min_internal_party_amt_in,
             maxInternalPartyAmountIn: max_internal_party_amt_in,
             blockDeadline: block_deadline,
