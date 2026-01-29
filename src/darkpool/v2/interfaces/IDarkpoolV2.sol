@@ -156,10 +156,7 @@ interface IDarkpoolV2 {
     /// @param fillAmount The amount filled in this settlement
     /// @param amountRemaining The remaining amount after this fill (0 = fully filled)
     event PublicIntentUpdated(
-        bytes32 indexed intentHash,
-        address indexed owner,
-        uint256 fillAmount,
-        uint256 amountRemaining
+        bytes32 indexed intentHash, address indexed owner, uint256 fillAmount, uint256 amountRemaining
     );
 
     /// @notice Emitted when a public intent is explicitly cancelled

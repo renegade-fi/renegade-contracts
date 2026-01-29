@@ -8,9 +8,8 @@ use crate::{
         },
         fund_parties,
         private_intent_public_balance::{
-            build_auth_bundle_first_fill, build_auth_bundle_subsequent_fill,
-            generate_first_fill_validity_proof, generate_linking_proof,
-            generate_subsequent_fill_validity_proof,
+            build_auth_bundle_first_fill, generate_first_fill_validity_proof,
+            generate_linking_proof,
         },
         settlement_relayer_fee,
     },
@@ -20,7 +19,6 @@ use alloy::{primitives::U256, signers::local::PrivateKeySigner};
 use eyre::Result;
 use rand::{Rng, thread_rng};
 use renegade_abi::v2::{IDarkpoolV2::SettlementBundle, relayer_types::u256_to_u128};
-use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
@@ -33,7 +31,6 @@ use renegade_darkpool_types::{
     bounded_match_result::BoundedMatchResult,
     intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
-    state_wrapper::StateWrapper,
 };
 use test_helpers::{assert_eq_result, integration_test_async};
 
@@ -217,25 +214,4 @@ fn build_settlement_bundle_first_fill(
         linking_proof.into(),
     );
     Ok((state_intent, settlement_bundle))
-}
-
-/// Build a settlement bundle for a subsequent fill
-fn build_settlement_bundle_subsequent_fill(
-    state_intent: &StateWrapper<Intent>,
-    merkle_opening: &MerkleAuthenticationPath,
-    bounded_match_result: &BoundedMatchResult,
-) -> Result<SettlementBundle> {
-    let (validity_statement, validity_proof, validity_link_hint) =
-        generate_subsequent_fill_validity_proof(state_intent, merkle_opening)?;
-    let (settlement_statement, settlement_proof, settlement_link_hint) =
-        generate_settlement_proof(&state_intent.inner, bounded_match_result)?;
-    let linking_proof = generate_linking_proof(&validity_link_hint, &settlement_link_hint)?;
-
-    let auth_bundle = build_auth_bundle_subsequent_fill(&validity_statement, &validity_proof)?;
-    Ok(SettlementBundle::private_intent_public_balance_bounded(
-        auth_bundle,
-        settlement_statement.into(),
-        settlement_proof.into(),
-        linking_proof.into(),
-    ))
 }
