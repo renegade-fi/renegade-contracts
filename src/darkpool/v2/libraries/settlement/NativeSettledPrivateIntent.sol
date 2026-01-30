@@ -80,6 +80,7 @@ library NativeSettledPrivateIntentLib {
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     /// @return settlementContext The settlement context containing transfers and proofs to execute
+    /// @return receivedAmount The amount received by the external party (net of fees)
     function executeBoundedMatch(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
@@ -89,7 +90,7 @@ library NativeSettledPrivateIntentLib {
         DarkpoolState storage state
     )
         external
-        returns (SettlementContext memory settlementContext)
+        returns (SettlementContext memory settlementContext, uint256 receivedAmount)
     {
         // Allocate context for both internal and external party:
         // Internal: 1 deposit, 3 withdrawals; External: 1 deposit, 3 withdrawals
@@ -103,7 +104,7 @@ library NativeSettledPrivateIntentLib {
         );
 
         if (settlementBundle.isFirstFill) {
-            executeBoundedMatchFirstFill(
+            receivedAmount = executeBoundedMatchFirstFill(
                 matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
@@ -113,7 +114,7 @@ library NativeSettledPrivateIntentLib {
                 state
             );
         } else {
-            executeBoundedMatchSubsequent(
+            receivedAmount = executeBoundedMatchSubsequent(
                 matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
@@ -133,6 +134,7 @@ library NativeSettledPrivateIntentLib {
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return receivedAmount The amount received by the external party (net of fees)
     function executeBoundedMatchFirstFill(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
@@ -143,22 +145,17 @@ library NativeSettledPrivateIntentLib {
         DarkpoolState storage state
     )
         private
+        returns (uint256 receivedAmount)
     {
         // Decode the bundle data
-        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData =
-            PrivateIntentPublicBalanceBoundedLib.decodePrivateIntentPublicBalanceBoundedBundleDataFirstFill(
-                settlementBundle
-            );
+        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData = PrivateIntentPublicBalanceBoundedLib
+            .decodePrivateIntentPublicBalanceBoundedBundleDataFirstFill(settlementBundle);
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
             BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
 
         // 1. Verify the settlement proof
         PrivateIntentPublicBalanceBoundedLib.verifySettlement(
-            matchResult,
-            bundleData.settlementStatement,
-            bundleData.settlementProof,
-            contracts,
-            settlementContext
+            matchResult, bundleData.settlementStatement, bundleData.settlementProof, contracts, settlementContext
         );
 
         // 2. Apply fees
@@ -176,7 +173,7 @@ library NativeSettledPrivateIntentLib {
             rate: bundleData.settlementStatement.externalRelayerFeeRate,
             recipient: bundleData.settlementStatement.relayerFeeAddress
         });
-        ExternalSettlementLib.allocateExternalPartyTransfers(
+        receivedAmount = ExternalSettlementLib.allocateExternalPartyTransfers(
             externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
         );
     }
@@ -189,6 +186,7 @@ library NativeSettledPrivateIntentLib {
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
+    /// @return receivedAmount The amount received by the external party (net of fees)
     function executeBoundedMatchSubsequent(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
@@ -199,6 +197,7 @@ library NativeSettledPrivateIntentLib {
         DarkpoolState storage state
     )
         private
+        returns (uint256 receivedAmount)
     {
         // Decode the bundle data
         PrivateIntentPublicBalanceBoundedBundle memory bundleData =
@@ -208,11 +207,7 @@ library NativeSettledPrivateIntentLib {
 
         // 1. Verify the settlement proof
         PrivateIntentPublicBalanceBoundedLib.verifySettlement(
-            matchResult,
-            bundleData.settlementStatement,
-            bundleData.settlementProof,
-            contracts,
-            settlementContext
+            matchResult, bundleData.settlementStatement, bundleData.settlementProof, contracts, settlementContext
         );
 
         // 2. Apply fees
@@ -230,7 +225,7 @@ library NativeSettledPrivateIntentLib {
             rate: bundleData.settlementStatement.externalRelayerFeeRate,
             recipient: bundleData.settlementStatement.relayerFeeAddress
         });
-        ExternalSettlementLib.allocateExternalPartyTransfers(
+        receivedAmount = ExternalSettlementLib.allocateExternalPartyTransfers(
             externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
         );
     }

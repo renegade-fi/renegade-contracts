@@ -16,8 +16,8 @@ import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
-import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
-import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
+import { GasSponsorV2 } from "darkpoolv2-contracts/GasSponsorV2.sol";
+import { GasSponsorV2Proxy } from "darkpoolv2-proxies/GasSponsorV2Proxy.sol";
 import { DeployUtils } from "../utils/DeployUtils.sol";
 
 /// @title DeployV2Utils
@@ -51,12 +51,12 @@ contract DeployV2Utils {
         return address(uint160(uint256(adminSlot)));
     }
 
-    /// @notice Deploy the GasSponsor contract behind a proxy
-    /// @param owner The owner address - serves as both proxy admin and GasSponsor contract owner
+    /// @notice Deploy the GasSponsorV2 contract behind a proxy
+    /// @param owner The owner address - serves as both proxy admin and GasSponsorV2 contract owner
     /// @param darkpoolAddress The address of the darkpool proxy contract
     /// @param authAddress The public key used to authenticate gas sponsorship
     /// @param vm The VM to run the commands with
-    /// @return gasSponsorProxyAddr The deployed GasSponsor proxy address
+    /// @return gasSponsorProxyAddr The deployed GasSponsorV2 proxy address
     function deployGasSponsor(
         address owner,
         address darkpoolAddress,
@@ -66,29 +66,29 @@ contract DeployV2Utils {
         internal
         returns (address gasSponsorProxyAddr)
     {
-        // Deploy the GasSponsor implementation
+        // Deploy the GasSponsorV2 implementation
         address gasSponsorAddr = deployGasSponsorImplementation(vm);
 
-        // Deploy the GasSponsorProxy
-        GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(gasSponsorAddr, owner, darkpoolAddress, authAddress);
-        DeployUtils.writeDeployment(vm, "GasSponsorProxy", address(gasSponsorProxy));
-        console.log("GasSponsorProxy deployed at:", address(gasSponsorProxy));
+        // Deploy the GasSponsorV2Proxy
+        GasSponsorV2Proxy gasSponsorProxy = new GasSponsorV2Proxy(gasSponsorAddr, owner, darkpoolAddress, authAddress);
+        DeployUtils.writeDeployment(vm, "GasSponsorV2Proxy", address(gasSponsorProxy));
+        console.log("GasSponsorV2Proxy deployed at:", address(gasSponsorProxy));
 
         // Extract and save the ProxyAdmin address
         address proxyAdmin = getProxyAdmin(address(gasSponsorProxy), vm);
-        DeployUtils.writeDeployment(vm, "GasSponsorProxyAdmin", proxyAdmin);
-        console.log("GasSponsorProxyAdmin deployed at:", proxyAdmin);
+        DeployUtils.writeDeployment(vm, "GasSponsorV2ProxyAdmin", proxyAdmin);
+        console.log("GasSponsorV2ProxyAdmin deployed at:", proxyAdmin);
 
         return address(gasSponsorProxy);
     }
 
-    /// @notice Deploy only the GasSponsor implementation contract for proxy upgrades
+    /// @notice Deploy only the GasSponsorV2 implementation contract for proxy upgrades
     /// @param vm The VM to write deployments
     /// @return implAddr The deployed implementation address
     function deployGasSponsorImplementation(Vm vm) internal returns (address implAddr) {
-        GasSponsor gasSponsor = new GasSponsor();
-        DeployUtils.writeDeployment(vm, "GasSponsor", address(gasSponsor));
-        console.log("GasSponsor implementation deployed at:", address(gasSponsor));
+        GasSponsorV2 gasSponsor = new GasSponsorV2();
+        DeployUtils.writeDeployment(vm, "GasSponsorV2", address(gasSponsor));
+        console.log("GasSponsorV2 implementation deployed at:", address(gasSponsor));
         return address(gasSponsor);
     }
 
