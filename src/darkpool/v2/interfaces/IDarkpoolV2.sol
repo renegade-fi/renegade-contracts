@@ -348,13 +348,15 @@ interface IDarkpoolV2 {
     /// @param matchResult The bounded match result parameters
     /// @param internalPartySettlementBundle The settlement bundle for the internal party. This type validates
     /// the internal user's state elements which are input to the trade.
+    /// @return receivedAmount The amount received by the external party (net of fees)
     function settleExternalMatch(
         uint256 externalPartyAmountIn,
         address recipient,
         BoundedMatchResult calldata matchResult,
         SettlementBundle calldata internalPartySettlementBundle
     )
-        external;
+        external
+        returns (uint256 receivedAmount);
 
     // --- Admin Interface --- //
     // Note: owner() and paused() are inherited from OpenZeppelin's Ownable and Pausable contracts

@@ -99,6 +99,7 @@ library NativeSettledPublicIntentLib {
     /// @param settlementBundle The settlement bundle to validate
     /// @param state The darkpool state containing all storage references
     /// @return settlementContext The settlement context containing transfers and proofs to execute
+    /// @return receivedAmount The amount received by the external party (net of fees)
     function executeBoundedMatch(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
@@ -107,7 +108,7 @@ library NativeSettledPublicIntentLib {
         DarkpoolState storage state
     )
         external
-        returns (SettlementContext memory settlementContext)
+        returns (SettlementContext memory settlementContext, uint256 receivedAmount)
     {
         // Allocate context for both internal and external party:
         // Internal: 1 deposit, 3 withdrawals; External: 1 deposit, 3 withdrawals
@@ -133,7 +134,7 @@ library NativeSettledPublicIntentLib {
 
         // Allocate transfers for external party
         FeeRate memory externalRelayerFeeRate = bundleData.relayerFeeRate;
-        ExternalSettlementLib.allocateExternalPartyTransfers(
+        receivedAmount = ExternalSettlementLib.allocateExternalPartyTransfers(
             externalPartyRecipient, externalRelayerFeeRate, externalObligation, settlementContext, state
         );
     }
