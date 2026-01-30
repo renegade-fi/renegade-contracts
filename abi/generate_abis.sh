@@ -111,11 +111,14 @@ echo "Generating IVkeys ABI..."
 echo "Generating ISettlementTypes ABI..."
 (cd "$PROJECT_ROOT" && forge inspect src/darkpool/v2/interfaces/ISettlementTypes.sol:ISettlementTypes abi --json) > ISettlementTypes.json
 
+echo "Generating IGasSponsorV2 ABI..."
+(cd "$PROJECT_ROOT" && forge inspect src/darkpool/v2/interfaces/IGasSponsorV2.sol:IGasSponsorV2 abi --json) > IGasSponsorV2.json
+
 # Combine V2 ABIs
-combine_abis ICombinedV2.json IDarkpoolV2.json IVerifier.json IVkeys.json ISettlementTypes.json
+combine_abis ICombinedV2.json IDarkpoolV2.json IVerifier.json IVkeys.json ISettlementTypes.json IGasSponsorV2.json
 
 # Clean up individual V2 ABI files
 echo "Cleaning up individual V2 ABI files..."
-rm IDarkpoolV2.json IVerifier.json IVkeys.json ISettlementTypes.json
+rm IDarkpoolV2.json IVerifier.json IVkeys.json ISettlementTypes.json IGasSponsorV2.json
 
 echo "Done! Generated combined V2 ABI file: ICombinedV2.json" 

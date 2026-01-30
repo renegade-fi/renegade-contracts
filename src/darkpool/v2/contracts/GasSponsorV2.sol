@@ -83,7 +83,7 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
     /// @notice The public key used to authenticate gas sponsorship, stored as an address
     address public authAddress;
     /// @notice The set of used nonces for sponsored matches
-    mapping(uint256 => bool) public usedNonces;
+    mapping(uint256 => bool) private _usedNonces;
 
     // ---------------
     // | CONSTRUCTOR |
@@ -149,7 +149,7 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
     /// @param matchResult The bounded match result parameters
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @param options The gas sponsorship options (refund address, amount, nonce, signature)
-    /// @return The amount received by the external party
+    /// @return The total amount received by the external party
     function sponsorExternalMatch(
         uint256 externalPartyAmountIn,
         address recipient,
@@ -158,7 +158,6 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
         GasSponsorOptions calldata options
     )
         external
-        payable
         returns (uint256)
     {
         // Resolve the recipient and verify the sponsorship signature
@@ -166,21 +165,20 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
         _verifySigSpendNonce(options);
 
         // Execute the external match
-        (address buyTokenAddr, uint256 receivedInMatch) =
+        (address receiveToken, uint256 receiveAmt) =
             _doExternalMatch(externalPartyAmountIn, resolvedRecipient, matchResult, internalPartySettlementBundle);
 
         // If gas sponsorship is paused or refund amount is 0, return early
         if (paused() || options.refundAmount == 0) {
             emit GasSponsorshipSkipped(options.nonce);
-            emit SponsoredExternalMatchOutput(receivedInMatch, options.nonce);
-            return receivedInMatch;
+            emit SponsoredExternalMatchOutput(receiveAmt, options.nonce);
+            return receiveAmt;
         }
 
         // Refund the gas costs
-        uint256 receivedAmount = _refundGasCost(options, buyTokenAddr, receivedInMatch, resolvedRecipient);
-
-        emit SponsoredExternalMatchOutput(receivedAmount, options.nonce);
-        return receivedAmount;
+        uint256 totalReceived = _refundGasCost(options, receiveToken, receiveAmt, resolvedRecipient);
+        emit SponsoredExternalMatchOutput(totalReceived, options.nonce);
+        return totalReceived;
     }
 
     // ----------------------
@@ -192,28 +190,24 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
     /// @notice Verify the sponsorship signature and mark its nonce as used
     /// @param options The gas sponsorship options containing nonce, refund address, amount, and signature
     function _verifySigSpendNonce(GasSponsorOptions calldata options) internal {
-        _assertSponsorshipSignature(options.nonce, options.refundAddress, options.refundAmount, options.signature);
+        _assertSponsorshipSignature(options);
         _markNonceUsed(options.nonce);
     }
 
-    /// @notice Verify the signature over the nonce, refund address, and refund amount
-    /// @param nonce The nonce to verify
-    /// @param refundAddress The refund address
-    /// @param refundAmount The refund amount
-    /// @param signature The signature to verify
-    function _assertSponsorshipSignature(
-        uint256 nonce,
-        address refundAddress,
-        uint256 refundAmount,
-        bytes calldata signature
-    )
-        internal
-        view
-    {
-        // Create message hash directly from encoded tuple
-        bytes32 messageHash = EfficientHashLib.hash(abi.encode(nonce, refundAddress, refundAmount));
+    /// @notice Verify the signature over the gas sponsor options (excluding signature) and chain ID
+    /// @dev Signs all GasSponsorOptions fields (except signature) plus chain ID to prevent cross-chain replay
+    /// @param options The gas sponsorship options to verify
+    function _assertSponsorshipSignature(GasSponsorOptions calldata options) internal view {
+        // Create message hash from all GasSponsorOptions fields (except signature) plus chain ID
+        // The order matches GasSponsorOptions struct field order, with chainId appended
+        bytes32 messageHash = EfficientHashLib.hash(
+            abi.encode(
+                options.refundAddress, options.refundNativeEth, options.refundAmount, options.nonce, block.chainid
+            )
+        );
 
         // Split the signature into r, s and v
+        bytes calldata signature = options.signature;
         if (signature.length != 65) revert InvalidSignatureLength();
         bytes32 r = bytes32(signature[:32]);
         bytes32 s = bytes32(signature[32:64]);
@@ -231,9 +225,16 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
     /// @notice Marks the given nonce as used
     /// @param nonce The nonce to mark as used
     function _markNonceUsed(uint256 nonce) internal {
-        if (usedNonces[nonce]) revert NonceAlreadyUsed();
-        usedNonces[nonce] = true;
+        if (_usedNonces[nonce]) revert NonceAlreadyUsed();
+        _usedNonces[nonce] = true;
         emit NonceUsed(nonce);
+    }
+
+    /// @notice Check if a nonce has been used
+    /// @param nonce The nonce to check
+    /// @return Whether the nonce has been used
+    function isNonceUsed(uint256 nonce) external view returns (bool) {
+        return _usedNonces[nonce];
     }
 
     // --- External Match Helper --- //
@@ -243,8 +244,8 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
     /// @param recipient The address to receive output tokens
     /// @param matchResult The bounded match result parameters
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
-    /// @return buyTokenAddr The address of the token the external party receives
-    /// @return receivedInMatch The amount received by the external party in the match
+    /// @return receiveToken The address of the token the external party receives
+    /// @return receiveAmt The amount received by the external party in the match
     function _doExternalMatch(
         uint256 externalPartyAmountIn,
         address recipient,
@@ -252,19 +253,19 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
         SettlementBundle calldata internalPartySettlementBundle
     )
         internal
-        returns (address buyTokenAddr, uint256 receivedInMatch)
+        returns (address receiveToken, uint256 receiveAmt)
     {
         // The external party's input token is the internal party's output token
         // The external party's output token is the internal party's input token
         address sendToken = matchResult.internalPartyOutputToken;
-        buyTokenAddr = matchResult.internalPartyInputToken;
+        receiveToken = matchResult.internalPartyInputToken;
 
         // Take custody of the external party's input tokens
         _custodySendTokens(sendToken, externalPartyAmountIn);
 
         // Call the darkpool contract
         IDarkpoolV2 darkpool = IDarkpoolV2(darkpoolAddress);
-        receivedInMatch =
+        receiveAmt =
             darkpool.settleExternalMatch(externalPartyAmountIn, recipient, matchResult, internalPartySettlementBundle);
     }
 
@@ -277,12 +278,9 @@ contract GasSponsorV2 is Initializable, Ownable2Step, Pausable {
         address sender = msg.sender;
         address sponsor = address(this);
 
-        // Only execute ERC20 transfer if not native ETH
-        if (!DarkpoolConstants.isNativeToken(sendToken)) {
-            IERC20 token = IERC20(sendToken);
-            SafeERC20.safeIncreaseAllowance(token, darkpoolAddress, sendAmount);
-            SafeERC20.safeTransferFrom(token, sender, sponsor, sendAmount);
-        }
+        IERC20 token = IERC20(sendToken);
+        SafeERC20.safeIncreaseAllowance(token, darkpoolAddress, sendAmount);
+        SafeERC20.safeTransferFrom(token, sender, sponsor, sendAmount);
     }
 
     // --- Refund Helpers --- //

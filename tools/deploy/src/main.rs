@@ -167,6 +167,10 @@ struct DeployGasSponsorArgs {
     /// Auth address for gas sponsorship
     #[arg(long)]
     auth_address: Option<String>,
+
+    /// Deploy the V1 version of the GasSponsor (V2 is deployed by default)
+    #[arg(long)]
+    v1: bool,
 }
 
 /// Arguments for deploying only the Darkpool implementation contract
@@ -183,6 +187,10 @@ struct DeployGasSponsorImplementationArgs {
     /// Common arguments
     #[command(flatten)]
     common: CommonArgs,
+
+    /// Deploy the V1 version of the GasSponsor (V2 is deployed by default)
+    #[arg(long)]
+    v1: bool,
 }
 
 /// Arguments for deploying MalleableMatchConnector contract
@@ -297,6 +305,10 @@ fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
 
 /// Deploy the GasSponsor contract
 fn deploy_gas_sponsor(mut args: DeployGasSponsorArgs) -> Result<()> {
+    // Determine which version to deploy
+    let version = if args.v1 { "v1" } else { "v2" };
+    println!("Deploying {version} GasSponsor");
+
     // Prompt for required arguments if not provided
     prompt_for_gas_sponsor_args(&mut args)?;
 
@@ -306,14 +318,21 @@ fn deploy_gas_sponsor(mut args: DeployGasSponsorArgs) -> Result<()> {
     let auth_address = args.auth_address.unwrap();
 
     println!("Deploying GasSponsor to RPC URL: {}", args.common.rpc_url);
-    println!("\tOwner/Admin address: {}", owner);
-    println!("\tDarkpool address: {}", darkpool);
-    println!("\tAuth address: {}", auth_address);
+    println!("\tOwner/Admin address: {owner}");
+    println!("\tDarkpool address: {darkpool}");
+    println!("\tAuth address: {auth_address}");
+
+    // Select the deploy script based on version
+    let deploy_script = if args.v1 {
+        "script/v1/DeployGasSponsor.s.sol:DeployGasSponsorScript"
+    } else {
+        "script/v2/DeployGasSponsorV2.s.sol:DeployGasSponsorV2Script"
+    };
 
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/v1/DeployGasSponsor.s.sol:DeployGasSponsorScript") // Specify contract name with path
+        .arg(deploy_script)
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -362,15 +381,24 @@ fn deploy_darkpool_implementation(args: DeployDarkpoolImplementationArgs) -> Res
 
 /// Deploy only the GasSponsor implementation contract (no proxy, no libraries)
 fn deploy_gas_sponsor_implementation(args: DeployGasSponsorImplementationArgs) -> Result<()> {
+    // Determine which version to deploy
+    let version = if args.v1 { "v1" } else { "v2" };
     println!(
-        "Deploying GasSponsor implementation to RPC URL: {}",
+        "Deploying {version} GasSponsor implementation to RPC URL: {}",
         args.common.rpc_url
     );
+
+    // Select the deploy script based on version
+    let deploy_script = if args.v1 {
+        "script/v1/DeployGasSponsorImplementation.sol:DeployGasSponsorImplementationScript"
+    } else {
+        "script/v2/DeployGasSponsorV2Implementation.sol:DeployGasSponsorV2ImplementationScript"
+    };
 
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/v1/DeployGasSponsorImplementation.sol:DeployGasSponsorImplementationScript")
+        .arg(deploy_script)
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")

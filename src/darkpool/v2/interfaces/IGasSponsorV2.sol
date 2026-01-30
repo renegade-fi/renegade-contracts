@@ -86,7 +86,6 @@ interface IGasSponsorV2 {
         GasSponsorOptions calldata options
     )
         external
-        payable
         returns (uint256);
 
     /// @notice The address of the darkpool proxy contract
@@ -98,5 +97,5 @@ interface IGasSponsorV2 {
     /// @notice Check if a nonce has been used
     /// @param nonce The nonce to check
     /// @return Whether the nonce has been used
-    function usedNonces(uint256 nonce) external view returns (bool);
+    function isNonceUsed(uint256 nonce) external view returns (bool);
 }

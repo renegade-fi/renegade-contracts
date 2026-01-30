@@ -64,21 +64,16 @@ contract GasSponsorV2Test is PublicIntentExternalMatchTestUtils {
     // -----------
 
     /// @notice Sign a gas sponsorship payload for V2
-    /// @param nonce The nonce for the sponsorship
-    /// @param refundAddress The address to refund gas costs to
-    /// @param refundAmount The amount to refund
+    /// @param options The gas sponsorship options (signature field is ignored)
     /// @return signature The signed payload
-    function signGasSponsorshipPayloadV2(
-        uint256 nonce,
-        address refundAddress,
-        uint256 refundAmount
-    )
-        internal
-        view
-        returns (bytes memory)
-    {
-        // Create message hash directly from encoded tuple (same as in GasSponsorV2._assertSponsorshipSignature)
-        bytes32 messageHash = keccak256(abi.encode(nonce, refundAddress, refundAmount));
+    function signGasSponsorshipPayloadV2(GasSponsorOptions memory options) internal view returns (bytes memory) {
+        // Create message hash from all GasSponsorOptions fields (except signature) plus chain ID
+        // The order matches GasSponsorOptions struct field order, with chainId appended
+        bytes32 messageHash = keccak256(
+            abi.encode(
+                options.refundAddress, options.refundNativeEth, options.refundAmount, options.nonce, block.chainid
+            )
+        );
 
         // Sign the message hash with the private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(gasSponsorV2AuthPrivateKey, messageHash);
@@ -93,7 +88,7 @@ contract GasSponsorV2Test is PublicIntentExternalMatchTestUtils {
         options.refundAddress = externalParty.addr;
         options.refundNativeEth = refundNativeEth;
         options.refundAmount = REFUND_AMT;
-        options.signature = signGasSponsorshipPayloadV2(options.nonce, options.refundAddress, options.refundAmount);
+        options.signature = signGasSponsorshipPayloadV2(options);
     }
 
     /// @notice Create match data for a simulated trade
@@ -278,7 +273,7 @@ contract GasSponsorV2Test is PublicIntentExternalMatchTestUtils {
         options.refundAddress = externalParty.addr;
         options.refundNativeEth = false;
         options.refundAmount = 0;
-        options.signature = signGasSponsorshipPayloadV2(options.nonce, options.refundAddress, 0);
+        options.signature = signGasSponsorshipPayloadV2(options);
 
         // Fund the external party
         quoteToken.mint(externalParty.addr, externalPartyAmountIn);
@@ -364,8 +359,15 @@ contract GasSponsorV2Test is PublicIntentExternalMatchTestUtils {
         options.refundAddress = externalParty.addr;
         options.refundNativeEth = false;
         options.refundAmount = REFUND_AMT;
-        // Sign with wrong refund amount
-        options.signature = signGasSponsorshipPayloadV2(options.nonce, options.refundAddress, REFUND_AMT + 1);
+        // Sign with wrong refund amount - create a modified options for signing
+        GasSponsorOptions memory wrongOptions = GasSponsorOptions({
+            refundAddress: options.refundAddress,
+            refundNativeEth: options.refundNativeEth,
+            refundAmount: REFUND_AMT + 1,
+            nonce: options.nonce,
+            signature: ""
+        });
+        options.signature = signGasSponsorshipPayloadV2(wrongOptions);
 
         // Fund the external party
         quoteToken.mint(externalParty.addr, externalPartyAmountIn);
