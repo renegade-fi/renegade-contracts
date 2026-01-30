@@ -39,6 +39,7 @@ library ExternalSettlementLib {
     /// @param recipient The recipient of the withdrawal
     /// @param matchResult The bounded match result parameters
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
+    /// @return externalPartyReceiveAmount The amount received by the external party, net of fees
     function settleExternalMatch(
         DarkpoolState storage state,
         DarkpoolContracts memory contracts,
@@ -48,6 +49,7 @@ library ExternalSettlementLib {
         SettlementBundle calldata internalPartySettlementBundle
     )
         external
+        returns (uint256 externalPartyReceiveAmount)
     {
         // Validate the bounded match result
         BoundedMatchResultLib.validateBoundedMatchResult(matchResult, externalPartyAmountIn);
@@ -61,7 +63,8 @@ library ExternalSettlementLib {
         }
 
         // Execute the settlement bundle (allocates and returns context)
-        SettlementContext memory settlementContext = executeExternalSettlementBundle(
+        SettlementContext memory settlementContext;
+        (settlementContext, externalPartyReceiveAmount) = executeExternalSettlementBundle(
             matchResult, externalPartyAmountIn, recipient, internalPartySettlementBundle, contracts, state
         );
 
@@ -80,6 +83,7 @@ library ExternalSettlementLib {
     /// @param externalObligation The external party's settlement obligation
     /// @param settlementContext The settlement context to push transfers to
     /// @param state The darkpool state for protocol fee lookup
+    /// @return externalPartyReceiveAmount The amount received by the external party, net of fees
     function allocateExternalPartyTransfers(
         address recipient,
         FeeRate memory relayerFeeRate,
@@ -88,7 +92,7 @@ library ExternalSettlementLib {
         DarkpoolState storage state
     )
         internal
-        view
+        returns (uint256 externalPartyReceiveAmount)
     {
         address owner = msg.sender;
 
@@ -106,6 +110,8 @@ library ExternalSettlementLib {
 
         // Withdraw the output token from the darkpool to the recipient specified by the external party (minus fees)
         uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
+        externalPartyReceiveAmount = externalObligation.amountOut - totalFee;
+
         SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(recipient, totalFee);
         settlementContext.pushWithdrawal(withdrawal);
 
@@ -126,6 +132,7 @@ library ExternalSettlementLib {
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     /// @return settlementContext The settlement context containing transfers and proofs
+    /// @return externalPartyReceiveAmount The amount received by the external party, net of fees
     function executeExternalSettlementBundle(
         BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn,
@@ -135,15 +142,15 @@ library ExternalSettlementLib {
         DarkpoolState storage state
     )
         internal
-        returns (SettlementContext memory settlementContext)
+        returns (SettlementContext memory settlementContext, uint256 externalPartyReceiveAmount)
     {
         SettlementBundleType bundleType = internalPartySettlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            settlementContext = NativeSettledPublicIntentLib.executeBoundedMatch(
+            (settlementContext, externalPartyReceiveAmount) = NativeSettledPublicIntentLib.executeBoundedMatch(
                 matchResult, externalPartyAmountIn, externalPartyRecipient, internalPartySettlementBundle, state
             );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            settlementContext = NativeSettledPrivateIntentLib.executeBoundedMatch(
+            (settlementContext, externalPartyReceiveAmount) = NativeSettledPrivateIntentLib.executeBoundedMatch(
                 matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,
@@ -152,7 +159,7 @@ library ExternalSettlementLib {
                 state
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
-            settlementContext = RenegadeSettledPrivateIntentLib.executeBoundedMatch(
+            (settlementContext, externalPartyReceiveAmount) = RenegadeSettledPrivateIntentLib.executeBoundedMatch(
                 matchResult,
                 externalPartyAmountIn,
                 externalPartyRecipient,

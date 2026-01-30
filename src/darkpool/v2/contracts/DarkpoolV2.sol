@@ -308,9 +308,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
         whenNotPaused
+        returns (uint256 externalPartyReceiveAmount)
     {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
-        ExternalSettlementLib.settleExternalMatch(
+        externalPartyReceiveAmount = ExternalSettlementLib.settleExternalMatch(
             _state, contracts, externalPartyAmountIn, recipient, matchResult, internalPartySettlementBundle
         );
     }
