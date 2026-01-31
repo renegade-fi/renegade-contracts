@@ -39,6 +39,6 @@ pub fn generate_verification_key() -> VerificationKey {
 pub fn generate_proof(a: Scalar, b: Scalar, c: Scalar) -> PlonkProof {
     let statement = c;
     let witness = [a, b];
-    let proof = MulTwoCircuit::prove(witness, statement).unwrap();
+    let proof = MulTwoCircuit::prove(&witness, &statement).unwrap();
     proof.into()
 }
