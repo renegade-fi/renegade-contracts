@@ -2271,6 +2271,19 @@
   },
   {
     "type": "function",
+    "name": "whitelistTokensBatch",
+    "inputs": [
+      {
+        "name": "tokens",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "withdraw",
     "inputs": [
       {
@@ -22919,7 +22932,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "payable"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",

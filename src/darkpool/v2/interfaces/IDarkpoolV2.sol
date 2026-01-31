@@ -403,4 +403,8 @@ interface IDarkpoolV2 {
     /// @param token The token address to set whitelist status for
     /// @param whitelisted Whether the token should be whitelisted
     function setTokenWhitelist(address token, bool whitelisted) external;
+
+    /// @notice Whitelist multiple tokens in a single transaction
+    /// @param tokens The token addresses to whitelist
+    function whitelistTokensBatch(address[] calldata tokens) external;
 }

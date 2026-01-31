@@ -379,6 +379,14 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         _state.setTokenWhitelist(token, whitelisted);
     }
 
+    /// @notice Whitelist multiple tokens in a single transaction
+    /// @param tokens The token addresses to whitelist
+    function whitelistTokensBatch(address[] calldata tokens) external onlyOwner {
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            _state.setTokenWhitelist(tokens[i], true);
+        }
+    }
+
     /// @notice Pause the darkpool
     function pause() external onlyOwner {
         _pause();
