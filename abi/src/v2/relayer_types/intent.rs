@@ -14,7 +14,7 @@ use renegade_crypto_v2::fields::scalar_to_u256;
 use {
     crate::v2::IDarkpoolV2::PublicIntentPermit,
     alloy::{
-        primitives::Address,
+        primitives::{keccak256, Address, B256, U256},
         signers::{local::PrivateKeySigner, Error as SignerError},
         sol_types::SolValue,
     },
@@ -114,5 +114,28 @@ impl PublicIntentPermit {
         expected_address: Address,
     ) -> Result<bool, SignerError> {
         signature_with_nonce.validate(self.abi_encode().as_slice(), chain_id, expected_address)
+    }
+
+    /// Compute the hash of a public intent permit
+    ///
+    /// This is the keccak256 hash of the ABI-encoded permit, matching
+    /// the Solidity `EfficientHashLib.hash(abi.encode(permit))`.
+    pub fn compute_hash(&self) -> B256 {
+        keccak256(self.abi_encode())
+    }
+
+    /// Compute the nullifier for a public intent permit
+    ///
+    /// The nullifier uniquely identifies an intent + signature combination:
+    /// `H(intentHash || nonce)` where `||` is abi.encodePacked concatenation.
+    ///
+    /// The nonce here is the nonce originally used to sign the intent.
+    pub fn compute_nullifier(&self, intent_signature_nonce: U256) -> U256 {
+        let intent_hash = self.compute_hash();
+        let nonce_bytes = intent_signature_nonce.to_be_bytes::<{ U256::BYTES }>();
+        let packed = [intent_hash.as_slice(), nonce_bytes.as_slice()].concat();
+        let hash = keccak256(&packed);
+
+        U256::from_be_bytes(hash.0)
     }
 }
