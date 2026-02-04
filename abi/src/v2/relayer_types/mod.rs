@@ -1,6 +1,7 @@
 //! Relayer type interactions and conversions for the V2 ABI
 
 use alloy::primitives::U256;
+use darkpool_types::fee::FeeRates;
 use renegade_circuit_types_v2::fixed_point::FixedPoint;
 use renegade_constants_v2::Scalar;
 use renegade_crypto_v2::fields::scalar_to_u256;
@@ -85,6 +86,16 @@ impl From<IDarkpoolV2::BabyJubJubPoint> for BabyJubJubPoint {
         Self {
             x: u256_to_scalar(point.x),
             y: u256_to_scalar(point.y),
+        }
+    }
+}
+
+/// Convert a `FeeRates` to a contract `FeeRates`
+impl From<FeeRates> for IDarkpoolV2::FeeRates {
+    fn from(fee_rates: FeeRates) -> Self {
+        Self {
+            relayerFeeRate: fee_rates.relayer_fee_rate.into(),
+            protocolFeeRate: fee_rates.protocol_fee_rate.into(),
         }
     }
 }

@@ -64,6 +64,10 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         darkpoolState.setTokenWhitelist(address(baseToken), true);
         darkpoolState.setTokenWhitelist(address(quoteToken), true);
         darkpoolState.setTokenWhitelist(address(weth), true);
+
+        // Initialize the protocol fee settings to match the darkpool contract
+        darkpoolState.defaultProtocolFeeRate = FixedPointLib.wrap(TEST_PROTOCOL_FEE);
+        darkpoolState.protocolFeeRecipient = protocolFeeAddr;
     }
 
     // --- ERC20 Balances --- //

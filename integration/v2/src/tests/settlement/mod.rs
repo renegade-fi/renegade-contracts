@@ -6,13 +6,13 @@ use alloy::{
 };
 use eyre::Result;
 use rand::{Rng, thread_rng};
-use renegade_abi::v2::IDarkpoolV2::{Deposit, FeeRate};
+use renegade_abi::v2::IDarkpoolV2::{self, Deposit};
 use renegade_account_types::MerkleAuthenticationPath;
 use renegade_circuit_types::fixed_point::FixedPoint;
 use renegade_circuits::test_helpers::{BOUNDED_MAX_AMT, random_price};
 use renegade_crypto::fields::scalar_to_u128;
 use renegade_darkpool_types::{
-    balance::DarkpoolStateBalance, fee::FeeTake, intent::Intent,
+    balance::DarkpoolStateBalance, fee::FeeRates, fee::FeeTake, intent::Intent,
     settlement_obligation::SettlementObligation,
 };
 
@@ -39,9 +39,19 @@ pub fn settlement_relayer_fee() -> FixedPoint {
     FixedPoint::from_f64_round_down(0.0001) // 1bp
 }
 
+/// Get the fee rates for a settlement
+pub async fn settlement_fee_rates(args: &TestArgs) -> Result<FeeRates> {
+    let protocol_fee_rate = args.protocol_fee().await?;
+    let relayer_fee_rate = settlement_relayer_fee();
+    Ok(FeeRates {
+        relayer_fee_rate,
+        protocol_fee_rate,
+    })
+}
+
 /// Get the relayer's fee rate for settlement
-pub fn settlement_relayer_fee_rate(args: &TestArgs) -> FeeRate {
-    FeeRate {
+pub fn settlement_relayer_fee_rate(args: &TestArgs) -> IDarkpoolV2::FeeRate {
+    IDarkpoolV2::FeeRate {
         rate: settlement_relayer_fee().into(),
         recipient: args.relayer_signer_addr(),
     }

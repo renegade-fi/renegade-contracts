@@ -348,7 +348,7 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 13;
+        uint256 nPublicInputs = 14;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
 
         // Add the settlement obligation
@@ -370,9 +370,12 @@ library PublicInputsLib {
         publicInputs[9] = statement.outBalancePublicShares.protocolFeeBalance;
         publicInputs[10] = statement.outBalancePublicShares.amount;
 
-        // Add the relayer fee and recipient
-        publicInputs[11] = BN254.ScalarField.wrap(statement.relayerFee.repr);
-        publicInputs[12] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeRecipient)));
+        // Add the fee rates (relayer and protocol)
+        publicInputs[11] = BN254.ScalarField.wrap(statement.feeRates.relayerFeeRate.repr);
+        publicInputs[12] = BN254.ScalarField.wrap(statement.feeRates.protocolFeeRate.repr);
+
+        // Add the relayer fee recipient
+        publicInputs[13] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeRecipient)));
     }
 
     /// @notice Serialize the public inputs for a proof of intent and balance bounded settlement

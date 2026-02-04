@@ -403,7 +403,7 @@ impl From<IntentAndBalancePublicSettlementStatement>
         Self {
             inBalancePublicShares: statement.in_balance_public_shares.into(),
             outBalancePublicShares: statement.out_balance_public_shares.into(),
-            relayerFee: statement.relayer_fee.into(),
+            feeRates: statement.fee_rates.into(),
             relayerFeeRecipient: statement.relayer_fee_recipient,
             settlementObligation: statement.settlement_obligation.into(),
             amountPublicShare: scalar_to_u256(&statement.amount_public_share),

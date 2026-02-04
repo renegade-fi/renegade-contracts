@@ -14,6 +14,14 @@ struct FeeRate {
     address recipient;
 }
 
+/// @notice A pair of fee rates (relayer and protocol) for a settlement
+struct FeeRates {
+    /// @dev The relayer fee rate
+    FixedPoint relayerFeeRate;
+    /// @dev The protocol fee rate
+    FixedPoint protocolFeeRate;
+}
+
 /// @title FeeRateLib
 /// @author Renegade Eng
 /// @notice Library for fee rates

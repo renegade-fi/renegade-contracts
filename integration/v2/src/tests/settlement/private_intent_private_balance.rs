@@ -62,7 +62,7 @@ use crate::{
     test_args::TestArgs,
     tests::settlement::{
         compute_fee_take, create_random_intents_and_obligations, fund_ring0_party,
-        fund_ring2_party, settlement_relayer_fee, settlement_relayer_fee_rate, split_obligation,
+        fund_ring2_party, settlement_fee_rates, settlement_relayer_fee_rate, split_obligation,
     },
     util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
 };
@@ -100,7 +100,8 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
             &mut party0_bal,
             &party0_bal_opening,
             &args,
-        )?;
+        )
+        .await?;
     let settlement_bundle1 =
         build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &first_obligation1, &args)
             .await?;
@@ -154,6 +155,7 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
         &mut out_balance0,
         &second_obligation0,
         &tx_receipt,
+        &args,
     )
     .await?;
     let settlement_bundle1 =
@@ -238,7 +240,7 @@ pub async fn build_settlement_bundle_ring0(
 /// Updates the state intent's public shares to match the validity statement's values.
 /// This ensures that after settlement, we can correctly compute the commitment using
 /// the same values that Solidity uses from the validity proof.
-pub fn build_settlement_bundle_first_fill(
+pub async fn build_settlement_bundle_first_fill(
     signer: &PrivateKeySigner,
     intent: &Intent,
     obligation: &SettlementObligation,
@@ -261,7 +263,8 @@ pub fn build_settlement_bundle_first_fill(
 
     // Generate the settlement proof
     let (settlement_statement, settlement_proof, settlement_hint) =
-        generate_settlement_proof(&state_intent, in_balance, &out_balance, obligation)?;
+        generate_settlement_proof(&state_intent, in_balance, &out_balance, obligation, args)
+            .await?;
 
     // Build the auth bundles
     let auth_bundle = build_auth_bundle_first_fill(&validity_statement, &validity_proof)?;
@@ -309,6 +312,7 @@ pub async fn build_settlement_bundle_subsequent_fill(
     out_balance: &mut DarkpoolStateBalance,
     obligation: &SettlementObligation,
     first_fill_receipt: &TransactionReceipt,
+    args: &TestArgs,
 ) -> Result<SettlementBundle> {
     // Find the Merkle openings for all state elements
     let intent_opening = find_state_element_opening(intent, first_fill_receipt).await?;
@@ -332,7 +336,7 @@ pub async fn build_settlement_bundle_subsequent_fill(
 
     // Generate a settlement proof
     let (settlement_statement, settlement_proof, settlement_hint) =
-        generate_settlement_proof(intent, in_balance, out_balance, obligation)?;
+        generate_settlement_proof(intent, in_balance, out_balance, obligation, args).await?;
 
     // Build the auth bundles
     let validity_link_proof =
@@ -585,11 +589,12 @@ pub(crate) fn generate_existing_output_balance_validity_proof(
 }
 
 /// Generate a settlement proof for the fill
-fn generate_settlement_proof(
+async fn generate_settlement_proof(
     intent: &DarkpoolStateIntent,
     input_balance: &DarkpoolStateBalance,
     output_balance: &DarkpoolStateBalance,
     obligation: &SettlementObligation,
+    args: &TestArgs,
 ) -> Result<(
     IntentAndBalancePublicSettlementStatement,
     PlonkProof,
@@ -610,12 +615,15 @@ fn generate_settlement_proof(
         pre_settlement_out_balance_shares: pre_settlement_out_balance_shares.clone(),
     };
 
+    let fee_rates = settlement_fee_rates(args)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to get settlement fee rates: {e}"))?;
     let statement = IntentAndBalancePublicSettlementStatement {
         settlement_obligation: obligation.clone(),
         amount_public_share: pre_settlement_amount_public_share,
         in_balance_public_shares: pre_settlement_in_balance_shares,
         out_balance_public_shares: pre_settlement_out_balance_shares,
-        relayer_fee: settlement_relayer_fee(),
+        fee_rates,
         relayer_fee_recipient: output_balance.inner.relayer_fee_recipient,
     };
 
