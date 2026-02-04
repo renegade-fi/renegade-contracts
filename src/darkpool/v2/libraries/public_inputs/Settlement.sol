@@ -6,6 +6,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { FeeRates } from "darkpoolv2-types/Fee.sol";
 
 // --- Settlement Statements --- //
 // Settlement proofs verify that:
@@ -63,13 +64,10 @@ struct IntentAndBalancePublicSettlementStatement {
     /// @dev This value is also leaked from the witness so that the contracts can
     /// update it directly on-chain.
     PostMatchBalanceShare outBalancePublicShares;
-    /// @dev The relayer fee which is charged for the settlement
-    /// @dev We place this field in the statement so that it is included in the
-    /// Fiat-Shamir transcript and therefore is not malleable transaction
-    /// calldata. This allows the relayer to set the fee and be sure it cannot
-    /// be modified by mempool observers.
-    FixedPoint relayerFee;
+    /// @dev The fee rates (relayer and protocol) charged for the settlement
+    FeeRates feeRates;
     /// @dev The recipient of the relayer fee
+    /// @dev This must match the value on the output balance where the fee is accrued.
     address relayerFeeRecipient;
 }
 

@@ -13,7 +13,7 @@ import {
 
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
+import { FeeRate, FeeRateLib, FeeRates, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import {
@@ -795,12 +795,15 @@ library PrivateIntentPrivateBalanceBundleLib {
         view
         returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
     {
+        // Validate the protocol fee rate
         SettlementObligation memory obligation = settlementStatement.settlementObligation;
-
-        // First compute the fee rates
-        FeeRate memory relayerFeeRate =
-            FeeRate({ rate: settlementStatement.relayerFee, recipient: settlementStatement.relayerFeeRecipient });
+        FeeRates memory feeRates = settlementStatement.feeRates;
         FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
+        if (protocolFeeRate.rate.repr != feeRates.protocolFeeRate.repr) revert IDarkpoolV2.InvalidProtocolFeeRates();
+
+        // Construct the relayer fee rate
+        FeeRate memory relayerFeeRate =
+            FeeRate({ rate: feeRates.relayerFeeRate, recipient: settlementStatement.relayerFeeRecipient });
 
         // Then multiply the rates with the receive amount
         uint256 receiveAmount = obligation.amountOut;

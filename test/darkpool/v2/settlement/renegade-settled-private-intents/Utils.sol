@@ -29,6 +29,7 @@ import {
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { FeeRates } from "darkpoolv2-types/Fee.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -100,12 +101,19 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
             relayerFeeBalance: randomScalar(), protocolFeeBalance: randomScalar(), amount: randomScalar()
         });
 
+        // Get the actual protocol fee rate from the darkpool for this token pair
+        FixedPoint memory protocolFeeRate = darkpool.getProtocolFee(obligation.inputToken, obligation.outputToken);
+        FeeRates memory feeRates = FeeRates({
+            relayerFeeRate: relayerFeeRateFixedPoint,
+            protocolFeeRate: protocolFeeRate
+        });
+
         return IntentAndBalancePublicSettlementStatement({
             settlementObligation: obligation,
             amountPublicShare: randomScalar(),
             inBalancePublicShares: inBalancePublicShares,
             outBalancePublicShares: outBalancePublicShares,
-            relayerFee: relayerFeeRateFixedPoint,
+            feeRates: feeRates,
             relayerFeeRecipient: relayerFeeAddr
         });
     }
