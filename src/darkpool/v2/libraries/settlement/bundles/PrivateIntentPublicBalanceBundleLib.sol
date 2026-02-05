@@ -273,8 +273,8 @@ library PrivateIntentPublicBalanceBundleLib {
         // Allocate trader's ERC20 transfers: deposit + net withdrawal
         _addSettlementTransfers(intentOwner, obligation, netReceiveAmount, settlementContext);
 
-        // Emit recovery ID for the intent
-        emit IDarkpoolV2.RecoveryIdRegistered(bundleData.auth.statement.recoveryId);
+        // Spend the recovery ID nullifier for the intent
+        state.spendRecoveryIdNullifier(bundleData.auth.statement.recoveryId);
     }
 
     /// @notice Authorize and update the intent for an exact match settlement on subsequent fill
@@ -319,8 +319,8 @@ library PrivateIntentPublicBalanceBundleLib {
         address intentOwner = bundleData.auth.statement.intentOwner;
         _addSettlementTransfers(intentOwner, obligation, netReceiveAmount, settlementContext);
 
-        // Emit recovery ID for the intent
-        emit IDarkpoolV2.RecoveryIdRegistered(bundleData.auth.statement.recoveryId);
+        // Spend the recovery ID nullifier for the intent
+        state.spendRecoveryIdNullifier(bundleData.auth.statement.recoveryId);
     }
 
     /// @notice Allocate the trader's ERC20 transfers (deposit + net withdrawal)

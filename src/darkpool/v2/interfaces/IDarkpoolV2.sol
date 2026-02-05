@@ -128,6 +128,8 @@ interface IDarkpoolV2 {
     error FeeCannotBeZero();
     /// @notice Thrown when a token is not whitelisted
     error TokenNotWhitelisted(address token);
+    /// @notice Thrown when a recovery ID has already been used
+    error RecoveryIdAlreadyUsed();
 
     // --- Events --- //
 
@@ -221,6 +223,11 @@ interface IDarkpoolV2 {
     /// @param nullifier The nullifier to check
     /// @return True if the nullifier has been spent, false otherwise
     function nullifierSpent(BN254.ScalarField nullifier) external view returns (bool);
+
+    /// @notice Check if a recovery ID has been spent
+    /// @param recoveryId The recovery ID to check
+    /// @return True if the recovery ID has been spent, false otherwise
+    function recoveryIdSpent(BN254.ScalarField recoveryId) external view returns (bool);
 
     /// @notice Get the current Merkle root
     /// @param depth The depth of the Merkle tree to get the root of

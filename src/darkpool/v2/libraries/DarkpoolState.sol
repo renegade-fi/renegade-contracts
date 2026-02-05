@@ -47,6 +47,9 @@ struct DarkpoolState {
     /// elements in the Merkle state
     /// @dev The nullifier is computed deterministically from the shares of the pre-update state element
     NullifierLib.NullifierSet nullifierSet;
+    /// @notice The nullifier set for recovery IDs
+    /// @dev Ensures that a recovery ID is never reused across state transitions
+    NullifierLib.NullifierSet recoveryIdNullifierSet;
 }
 
 /// @title DarkpoolState
@@ -251,6 +254,31 @@ library DarkpoolStateLib {
     /// @return Whether the nullifier has been spent
     function isNullifierSpent(DarkpoolState storage state, BN254.ScalarField nullifier) internal view returns (bool) {
         return state.nullifierSet.isSpent(nullifier);
+    }
+
+    /// @notice Spend a recovery ID nullifier, preventing the same recovery ID from being used twice
+    /// @param state The darkpool state
+    /// @param recoveryId The recovery ID to spend
+    function spendRecoveryIdNullifier(DarkpoolState storage state, BN254.ScalarField recoveryId) internal {
+        state.recoveryIdNullifierSet.spend(recoveryId);
+
+        // Emit the recovery ID registered event
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+    }
+
+    /// @notice Check if a recovery ID has been spent
+    /// @param state The darkpool state
+    /// @param recoveryId The recovery ID to check
+    /// @return Whether the recovery ID has been spent
+    function isRecoveryIdSpent(
+        DarkpoolState storage state,
+        BN254.ScalarField recoveryId
+    )
+        internal
+        view
+        returns (bool)
+    {
+        return state.recoveryIdNullifierSet.isSpent(recoveryId);
     }
 
     /// @notice Insert a leaf into the Merkle mountain range at the given depth

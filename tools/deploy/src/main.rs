@@ -179,6 +179,10 @@ struct DeployDarkpoolImplementationArgs {
     /// Common arguments
     #[command(flatten)]
     common: CommonArgs,
+
+    /// Deploy the V1 version of the Darkpool implementation (V2 is deployed by default)
+    #[arg(long)]
+    v1: bool,
 }
 
 /// Arguments for deploying only the GasSponsor implementation contract
@@ -354,20 +358,29 @@ fn deploy_gas_sponsor(mut args: DeployGasSponsorArgs) -> Result<()> {
 
 /// Deploy only the Darkpool implementation contract (no proxy, no libraries)
 fn deploy_darkpool_implementation(args: DeployDarkpoolImplementationArgs) -> Result<()> {
+    let version = if args.v1 { "v1" } else { "v2" };
     println!(
-        "Deploying Darkpool implementation to RPC URL: {}",
+        "Deploying {version} Darkpool implementation to RPC URL: {}",
         args.common.rpc_url
     );
+
+    // Select the deploy script based on version
+    let deploy_script = if args.v1 {
+        "script/v1/DeployDarkpoolImplementation.s.sol:DeployDarkpoolImplementationScript"
+    } else {
+        "script/v2/DeployDarkpoolImpl.s.sol:DeployDarkpoolV2ImplementationScript"
+    };
 
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/v1/DeployDarkpoolImplementation.s.sol:DeployDarkpoolImplementationScript")
+        .arg(deploy_script)
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
         .arg(DARKPOOL_IMPLEMENTATION_RUN_SIGNATURE)
-        .arg("--broadcast") // Always use broadcast
+        .arg("--ffi") // Required for huffc (hasher deployment)
+        .arg("--broadcast")
         .arg("--private-key")
         .arg(&args.common.private_key)
         .arg(format!("-{}", args.common.verbosity));
@@ -375,7 +388,7 @@ fn deploy_darkpool_implementation(args: DeployDarkpoolImplementationArgs) -> Res
     // Execute the command
     run_command(cmd)?;
 
-    println!("\nDarkpool implementation deployment completed successfully!");
+    println!("\n{version} Darkpool implementation deployment completed successfully!");
     Ok(())
 }
 

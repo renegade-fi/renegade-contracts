@@ -241,10 +241,10 @@ library PrivateIntentPrivateBalanceBoundedLib {
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
-        // 3. Emit recovery IDs for the intent and balance
+        // 3. Spend recovery ID nullifiers for the intent and balance
         IntentAndBalanceValidityStatementFirstFill memory authStatement = bundle.auth.statement;
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.intentRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.balanceRecoveryId);
     }
 
     /// @notice Update the intent and input balance on a subsequent fill
@@ -273,10 +273,10 @@ library PrivateIntentPrivateBalanceBoundedLib {
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
-        // 3. Emit recovery IDs for the intent and balance
+        // 3. Spend recovery ID nullifiers for the intent and balance
         IntentAndBalanceValidityStatement memory authStatement = bundle.auth.statement;
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.intentRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.balanceRecoveryId);
     }
 
     // --------------------------------
@@ -451,9 +451,8 @@ library PrivateIntentPrivateBalanceBoundedLib {
             computeFullNewOutputBalanceCommitment(netReceiveAmount, bundle, settlementStatement, hasher);
         state.insertMerkleLeaf(outputBalanceBundle.merkleDepth, newBalanceCommitment, hasher);
 
-        // Emit a recovery ID for the output balance
-        BN254.ScalarField recoveryId = bundle.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+        // Spend the recovery ID nullifier for the output balance
+        state.spendRecoveryIdNullifier(bundle.statement.recoveryId);
     }
 
     /// @notice Update an existing output balance's contract state
@@ -483,9 +482,8 @@ library PrivateIntentPrivateBalanceBoundedLib {
             computeFullExistingOutputBalanceCommitment(netReceiveAmount, bundle, settlementStatement, hasher);
         state.insertMerkleLeaf(outputBalanceBundle.merkleDepth, newBalanceCommitment, hasher);
 
-        // Emit a recovery ID for the output balance
-        BN254.ScalarField recoveryId = bundle.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+        // Spend the recovery ID nullifier for the output balance
+        state.spendRecoveryIdNullifier(bundle.statement.recoveryId);
     }
 
     // ---------------------------
