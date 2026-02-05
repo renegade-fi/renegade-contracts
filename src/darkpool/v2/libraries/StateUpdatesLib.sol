@@ -197,8 +197,8 @@ library StateUpdatesLib {
         state.spendNullifier(balanceNullifier);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(depositProofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(depositProofBundle.statement.recoveryId);
     }
 
     /// @notice Deposit a new balance into the darkpool
@@ -236,8 +236,8 @@ library StateUpdatesLib {
         uint256 merkleDepth = newBalanceProofBundle.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(newBalanceProofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(newBalanceProofBundle.statement.recoveryId);
     }
 
     // --- Withdrawal --- //
@@ -276,8 +276,8 @@ library StateUpdatesLib {
         state.spendNullifier(balanceNullifier);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(withdrawalProofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(withdrawalProofBundle.statement.recoveryId);
     }
 
     // --- Fees --- //
@@ -316,8 +316,8 @@ library StateUpdatesLib {
         SimpleTransfer memory transfer = note.buildTransfer();
         ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(proofBundle.statement.recoveryId);
     }
 
     /// @notice Pay relayer fees publicly on a balance
@@ -350,8 +350,8 @@ library StateUpdatesLib {
         SimpleTransfer memory transfer = note.buildTransfer();
         ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(proofBundle.statement.recoveryId);
     }
 
     /// @notice Pay protocol fees privately on a balance
@@ -394,8 +394,8 @@ library StateUpdatesLib {
         // Emit the note posted event
         emit IDarkpoolV2.NotePosted(BN254.ScalarField.unwrap(noteCommitment));
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(proofBundle.statement.recoveryId);
     }
 
     /// @notice Pay relayer fees privately on a balance
@@ -439,8 +439,8 @@ library StateUpdatesLib {
         // Emit the note posted event
         emit IDarkpoolV2.NotePosted(BN254.ScalarField.unwrap(noteCommitment));
 
-        // Emit the recovery id
-        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
+        // Spend the recovery id nullifier
+        state.spendRecoveryIdNullifier(proofBundle.statement.recoveryId);
     }
 
     // --- Note Redemption --- //

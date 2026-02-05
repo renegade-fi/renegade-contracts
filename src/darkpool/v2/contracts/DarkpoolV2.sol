@@ -142,6 +142,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     }
 
     /// @inheritdoc IDarkpoolV2
+    function recoveryIdSpent(BN254.ScalarField recoveryId) public view returns (bool) {
+        return _state.isRecoveryIdSpent(recoveryId);
+    }
+
+    /// @inheritdoc IDarkpoolV2
     function getMerkleRoot(uint256 depth) public view returns (BN254.ScalarField) {
         return _state.getMerkleRoot(depth);
     }

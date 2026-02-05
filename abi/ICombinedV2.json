@@ -1774,6 +1774,25 @@
   },
   {
     "type": "function",
+    "name": "recoveryIdSpent",
+    "inputs": [
+      {
+        "name": "recoveryId",
+        "type": "uint256",
+        "internalType": "BN254.ScalarField"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "redeemNote",
     "inputs": [
       {
@@ -3001,6 +3020,11 @@
   {
     "type": "error",
     "name": "PublicRelayerFeePaymentVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RecoveryIdAlreadyUsed",
     "inputs": []
   },
   {

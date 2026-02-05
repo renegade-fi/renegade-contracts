@@ -33,9 +33,8 @@ import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import {
-    PrivateIntentPrivateBalanceBundleLib
-} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
+import { PrivateIntentPrivateBalanceBundleLib } from
+    "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 import {
     OutputBalanceBundle,
     OutputBalanceBundleType,
@@ -98,8 +97,7 @@ library RenegadeSettledPrivateFillLib {
         pure
         returns (RenegadeSettledPrivateFirstFillBundle memory bundleData)
     {
-        bool validType =
-            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFirstFillBundle));
     }
@@ -112,8 +110,7 @@ library RenegadeSettledPrivateFillLib {
         pure
         returns (RenegadeSettledPrivateFillBundle memory bundleData)
     {
-        bool validType =
-            !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }
@@ -240,10 +237,10 @@ library RenegadeSettledPrivateFillLib {
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
 
-        // 3. Emit recovery IDs for the intent and balance
+        // 3. Spend recovery ID nullifiers for the intent and balance
         IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.intentRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.balanceRecoveryId);
     }
 
     /// @notice Update the intent and input balance after authorization on a subsequent fill
@@ -291,10 +288,10 @@ library RenegadeSettledPrivateFillLib {
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
 
-        // 3. Emit recovery IDs for the intent and balance
+        // 3. Spend recovery ID nullifiers for the intent and balance
         IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
-        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.intentRecoveryId);
+        state.spendRecoveryIdNullifier(authStatement.balanceRecoveryId);
     }
 
     // --------------------------------
@@ -446,9 +443,8 @@ library RenegadeSettledPrivateFillLib {
             computeFullBalanceCommitment(newOutBalancePublicShares, partialCommitment, hasher);
         state.insertMerkleLeaf(outputBalanceBundle.merkleDepth, balCommitment, hasher);
 
-        // Emit a recovery ID for the output balance
-        BN254.ScalarField recoveryId = newBalanceBundle.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+        // Spend the recovery ID nullifier for the output balance
+        state.spendRecoveryIdNullifier(newBalanceBundle.statement.recoveryId);
     }
 
     /// @notice Update an existing output balance bundle in the Renegade state
@@ -486,9 +482,8 @@ library RenegadeSettledPrivateFillLib {
             computeFullBalanceCommitment(newOutBalancePublicShares, partialCommitment, hasher);
         state.insertMerkleLeaf(outputBalanceBundle.merkleDepth, balCommitment, hasher);
 
-        // Emit a recovery ID for the output balance
-        BN254.ScalarField recoveryId = existingBalanceBundle.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+        // Spend the recovery ID nullifier for the output balance
+        state.spendRecoveryIdNullifier(existingBalanceBundle.statement.recoveryId);
     }
 
     // --------------------------
