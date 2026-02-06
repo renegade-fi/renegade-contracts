@@ -167,9 +167,9 @@ pub fn generate_proofs(
     let sum = sum_witness.statement();
     let product = product_witness.statement();
 
-    let (sum_proof, sum_link_hint) = SumCircuit::prove_with_link_hint(sum_witness, sum).unwrap();
+    let (sum_proof, sum_link_hint) = SumCircuit::prove_with_link_hint(&sum_witness, &sum).unwrap();
     let (product_proof, product_link_hint) =
-        ProductCircuit::prove_with_link_hint(product_witness, product).unwrap();
+        ProductCircuit::prove_with_link_hint(&product_witness, &product).unwrap();
 
     let layout = SumCircuit::get_circuit_layout().unwrap();
     let group_layout = layout.get_group_layout(LINKING_GROUP_NAME);

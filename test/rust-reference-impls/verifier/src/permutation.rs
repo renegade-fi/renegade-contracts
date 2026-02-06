@@ -74,6 +74,6 @@ pub fn generate_verification_key() -> VerificationKey {
 
 /// Generate a proof for the permutation circuit
 pub fn generate_proof(statement: PermutationStatement, witness: PermutationWitness) -> PlonkProof {
-    let proof = PermutationCircuit::prove(witness, statement).unwrap();
+    let proof = PermutationCircuit::prove(&witness, &statement).unwrap();
     proof.into()
 }

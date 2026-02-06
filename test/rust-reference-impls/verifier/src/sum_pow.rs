@@ -39,7 +39,7 @@ pub fn generate_verification_key() -> VerificationKey {
 /// Generate a proof for the sum-pow circuit
 pub fn generate_proof(inputs: Vec<Scalar>, expected: Scalar) -> PlonkProof {
     let statement = expected;
-    let witness = inputs.try_into().unwrap();
-    let proof = SumPowCircuit::prove(witness, statement).unwrap();
+    let witness: [Scalar; NUM_INPUTS] = inputs.try_into().unwrap();
+    let proof = SumPowCircuit::prove(&witness, &statement).unwrap();
     proof.into()
 }
