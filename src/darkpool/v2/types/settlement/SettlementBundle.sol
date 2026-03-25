@@ -67,8 +67,11 @@ enum SettlementBundleType {
 struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
-    /// @dev The relayer's fee take for the match
-    FeeRate relayerFeeRate;
+    /// @dev The relayer fee rate charged to the internal party
+    FeeRate internalRelayerFeeRate;
+    /// @dev The relayer fee rate charged to the external party
+    /// @dev Must be zero for exact/internal settlement (no external party)
+    FeeRate externalRelayerFeeRate;
 }
 
 /// @title Settlement Bundle Library
@@ -166,7 +169,7 @@ library SettlementBundleLib {
     // --- Authorization Validation --- //
 
     /// @notice Compute the digest which the executor must sign for a natively settled public intent bundle
-    /// @dev The digest is the hash of the relayer's fee take and the obligation. The executor authorizes both these
+    /// @dev The digest is the hash of both relayer fee rates and the obligation. The executor authorizes all these
     /// values through a signature.
     /// @param bundleData The bundle data to compute the digest for
     /// @param obligation The settlement obligation to compute the digest for
@@ -179,15 +182,16 @@ library SettlementBundleLib {
         pure
         returns (bytes32 digest)
     {
-        // Encode and hash the fee take with the obligation
-        bytes memory encoded = abi.encode(bundleData.relayerFeeRate, obligation);
+        // Encode and hash both fee rates with the obligation
+        bytes memory encoded =
+            abi.encode(bundleData.internalRelayerFeeRate, bundleData.externalRelayerFeeRate, obligation);
         digest = EfficientHashLib.hash(encoded);
     }
 
     /// @notice Compute the digest which the executor must sign for a bounded match
-    /// @dev The digest is the hash of the relayer's fee take and the bounded match result. The executor authorizes both
+    /// @dev The digest is the hash of both relayer fee rates and the bounded match result. The executor authorizes all
     /// these values through a signature.
-    /// @param bundleData The bundle data containing the relayer fee rate
+    /// @param bundleData The bundle data containing the relayer fee rates
     /// @param matchResult The bounded match result
     /// @return digest The digest which the executor must sign
     function computeBoundedMatchExecutorDigest(
@@ -198,7 +202,8 @@ library SettlementBundleLib {
         pure
         returns (bytes32 digest)
     {
-        bytes memory encoded = abi.encode(bundleData.relayerFeeRate, matchResult);
+        bytes memory encoded =
+            abi.encode(bundleData.internalRelayerFeeRate, bundleData.externalRelayerFeeRate, matchResult);
         digest = EfficientHashLib.hash(encoded);
     }
 

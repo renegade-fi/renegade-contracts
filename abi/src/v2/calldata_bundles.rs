@@ -4,6 +4,16 @@ use alloy::sol_types::SolValue;
 
 use super::IDarkpoolV2::*;
 
+impl FeeRate {
+    /// Create a zero fee rate (no fee, no recipient)
+    pub fn zero() -> Self {
+        Self {
+            rate: FixedPoint { repr: U256::ZERO },
+            recipient: Address::ZERO,
+        }
+    }
+}
+
 /// The public obligation bundle type
 pub const PUBLIC_OBLIGATION_BUNDLE_TYPE: u8 = 0;
 /// The private obligation bundle type
@@ -55,11 +65,13 @@ impl SettlementBundle {
     /// Build a public intent settlement bundle
     pub fn public_intent_settlement(
         auth: PublicIntentAuthBundle,
-        relayer_fee_rate: FeeRate,
+        internal_relayer_fee_rate: FeeRate,
+        external_relayer_fee_rate: FeeRate,
     ) -> Self {
         let inner = PublicIntentPublicBalanceBundle {
             auth,
-            relayerFeeRate: relayer_fee_rate,
+            internalRelayerFeeRate: internal_relayer_fee_rate,
+            externalRelayerFeeRate: external_relayer_fee_rate,
         };
         let data = inner.abi_encode();
 

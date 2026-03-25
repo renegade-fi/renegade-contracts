@@ -13740,7 +13740,31 @@
             ]
           },
           {
-            "name": "relayerFeeRate",
+            "name": "internalRelayerFeeRate",
+            "type": "tuple",
+            "internalType": "struct FeeRate",
+            "components": [
+              {
+                "name": "rate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "externalRelayerFeeRate",
             "type": "tuple",
             "internalType": "struct FeeRate",
             "components": [
@@ -13921,7 +13945,31 @@
             ]
           },
           {
-            "name": "relayerFeeRate",
+            "name": "internalRelayerFeeRate",
+            "type": "tuple",
+            "internalType": "struct FeeRate",
+            "components": [
+              {
+                "name": "rate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "externalRelayerFeeRate",
             "type": "tuple",
             "internalType": "struct FeeRate",
             "components": [

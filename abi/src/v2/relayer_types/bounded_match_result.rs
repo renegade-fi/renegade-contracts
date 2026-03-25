@@ -42,13 +42,14 @@ impl IDarkpoolV2::BoundedMatchResult {
     /// Build an executor signature for the bounded match result
     pub fn create_executor_signature(
         &self,
-        relayer_fee_rate: FeeRate,
+        internal_fee_rate: FeeRate,
+        external_fee_rate: FeeRate,
         chain_id: u64,
         signer: &PrivateKeySigner,
     ) -> Result<SignatureWithNonce, SignerError> {
         use alloy::sol_types::SolValue;
 
-        let payload = (relayer_fee_rate, self.clone()).abi_encode();
+        let payload = (internal_fee_rate, external_fee_rate, self.clone()).abi_encode();
         SignatureWithNonce::sign(payload.as_slice(), chain_id, signer)
     }
 }

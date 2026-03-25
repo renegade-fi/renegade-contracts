@@ -21,12 +21,14 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
     // --- Bounded Match Result --- //
 
     /// @dev Create executor signature for bounded match
-    /// @param feeRate The relayer fee rate
+    /// @param internalFeeRate The internal relayer fee rate
+    /// @param externalFeeRate The external relayer fee rate
     /// @param matchResult The bounded match result
     /// @param signerPrivateKey The private key to sign with
     /// @return The executor signature
     function createBoundedMatchExecutorSignature(
-        FeeRate memory feeRate,
+        FeeRate memory internalFeeRate,
+        FeeRate memory externalFeeRate,
         BoundedMatchResult memory matchResult,
         uint256 signerPrivateKey
     )
@@ -34,19 +36,22 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
         returns (SignatureWithNonce memory)
     {
         // Use the calldata version via external call for memory-to-calldata conversion
-        return this._createBoundedMatchExecutorSignatureCalldata(feeRate, matchResult, signerPrivateKey);
+        return this._createBoundedMatchExecutorSignatureCalldata(
+            internalFeeRate, externalFeeRate, matchResult, signerPrivateKey
+        );
     }
 
     /// @dev Create executor signature for bounded match (calldata version)
     function _createBoundedMatchExecutorSignatureCalldata(
-        FeeRate memory feeRate,
+        FeeRate memory internalFeeRate,
+        FeeRate memory externalFeeRate,
         BoundedMatchResult calldata matchResult,
         uint256 signerPrivateKey
     )
         external
         returns (SignatureWithNonce memory)
     {
-        bytes memory encoded = abi.encode(feeRate, matchResult);
+        bytes memory encoded = abi.encode(internalFeeRate, externalFeeRate, matchResult);
         bytes32 digest = EfficientHashLib.hash(encoded);
 
         uint256 nonce = randomUint();
