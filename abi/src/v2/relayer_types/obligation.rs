@@ -37,16 +37,18 @@ impl From<CircuitObligation> for IDarkpoolV2::SettlementObligation {
 impl SettlementObligation {
     /// Create an executor signature for a settlement obligation
     ///
-    /// This includes the relayer's fee rate in the signed payload
+    /// This includes both relayer fee rates in the signed payload
     pub fn create_executor_signature(
         &self,
-        relayer_fee_rate: &FeeRate,
+        internal_fee_rate: &FeeRate,
+        external_fee_rate: &FeeRate,
         chain_id: u64,
         signer: &PrivateKeySigner,
     ) -> Result<SignatureWithNonce, SignerError> {
         use alloy::sol_types::SolValue;
 
-        let payload = (relayer_fee_rate.clone(), self.clone()).abi_encode();
+        let payload =
+            (internal_fee_rate.clone(), external_fee_rate.clone(), self.clone()).abi_encode();
         SignatureWithNonce::sign(payload.as_slice(), chain_id, signer)
     }
 }

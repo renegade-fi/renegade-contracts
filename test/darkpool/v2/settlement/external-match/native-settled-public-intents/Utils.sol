@@ -51,7 +51,8 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
 
     /// @dev Sign an obligation (memory version)
     function createExecutorSignature(
-        FeeRate memory feeRate,
+        FeeRate memory internalFeeRate,
+        FeeRate memory externalFeeRate,
         SettlementObligation memory obligation,
         uint256 signerPrivateKey
     )
@@ -59,20 +60,21 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
         returns (SignatureWithNonce memory)
     {
         // Use the calldata version via external call for memory-to-calldata conversion
-        return this._createExecutorSignatureCalldata(obligation, feeRate, signerPrivateKey);
+        return this._createExecutorSignatureCalldata(obligation, internalFeeRate, externalFeeRate, signerPrivateKey);
     }
 
     /// @dev Sign an obligation (calldata version)
     function _createExecutorSignatureCalldata(
         SettlementObligation memory obligation,
-        FeeRate memory feeRate,
+        FeeRate memory internalFeeRate,
+        FeeRate memory externalFeeRate,
         uint256 signerPrivateKey
     )
         external
         returns (SignatureWithNonce memory)
     {
-        // Hash the fee with obligation
-        bytes memory encoded = abi.encode(feeRate, obligation);
+        // Hash both fee rates with obligation
+        bytes memory encoded = abi.encode(internalFeeRate, externalFeeRate, obligation);
         bytes32 digest = EfficientHashLib.hash(encoded);
 
         // Sign with the private key
@@ -98,9 +100,12 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
-        // Create relayer fee rate and sign the executor digest with the executor key
-        FeeRate memory feeRate = relayerFeeRate();
-        SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
+        // Create relayer fee rates and sign the executor digest with the executor key
+        // For exact/internal settlement, external fee must be zero
+        FeeRate memory internalFeeRate = relayerFeeRate();
+        FeeRate memory externalFeeRate = FeeRate({ rate: FixedPointLib.wrap(0), recipient: address(0) });
+        SignatureWithNonce memory executorSignature =
+            createExecutorSignature(internalFeeRate, externalFeeRate, obligation, executorPrivateKey);
 
         // Create auth bundle with empty permit (no first-fill permit)
         SignedPermitSingle memory emptyPermit;
@@ -110,8 +115,11 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
             executorSignature: executorSignature,
             allowancePermit: emptyPermit
         });
-        PublicIntentPublicBalanceBundle memory bundleData =
-            PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
+        PublicIntentPublicBalanceBundle memory bundleData = PublicIntentPublicBalanceBundle({
+            auth: auth,
+            internalRelayerFeeRate: internalFeeRate,
+            externalRelayerFeeRate: externalFeeRate
+        });
 
         // Create the complete settlement bundle
         return SettlementBundle({
@@ -141,10 +149,11 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
-        // Create relayer fee rate and sign (feeRate, matchResult) with the executor key
-        FeeRate memory feeRate = relayerFeeRate();
+        // Create relayer fee rates and sign (fees, matchResult) with the executor key
+        FeeRate memory internalFeeRate = relayerFeeRate();
+        FeeRate memory externalFeeRate = relayerFeeRate();
         SignatureWithNonce memory executorSignature =
-            createBoundedMatchExecutorSignature(feeRate, matchResult, executorPrivateKey);
+            createBoundedMatchExecutorSignature(internalFeeRate, externalFeeRate, matchResult, executorPrivateKey);
 
         // Create auth bundle with empty permit (no first-fill permit)
         SignedPermitSingle memory emptyPermit;
@@ -154,8 +163,11 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
             executorSignature: executorSignature,
             allowancePermit: emptyPermit
         });
-        PublicIntentPublicBalanceBundle memory bundleData =
-            PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
+        PublicIntentPublicBalanceBundle memory bundleData = PublicIntentPublicBalanceBundle({
+            auth: auth,
+            internalRelayerFeeRate: internalFeeRate,
+            externalRelayerFeeRate: externalFeeRate
+        });
 
         // Create the complete settlement bundle
         return SettlementBundle({

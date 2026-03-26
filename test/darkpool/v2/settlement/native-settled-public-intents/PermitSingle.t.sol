@@ -93,8 +93,10 @@ contract PermitSingleTests is PublicIntentSettlementTestUtils {
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
-        FeeRate memory feeRate = relayerFeeRate();
-        SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
+        FeeRate memory internalFeeRate = relayerFeeRate();
+        FeeRate memory externalFeeRate = FeeRate({ rate: FixedPointLib.wrap(0), recipient: address(0) });
+        SignatureWithNonce memory executorSignature =
+            createExecutorSignature(internalFeeRate, externalFeeRate, obligation, executorPrivateKey);
 
         return SettlementBundle({
             isFirstFill: false,
@@ -107,7 +109,8 @@ contract PermitSingleTests is PublicIntentSettlementTestUtils {
                         executorSignature: executorSignature,
                         allowancePermit: allowancePermit
                     }),
-                    relayerFeeRate: feeRate
+                    internalRelayerFeeRate: internalFeeRate,
+                    externalRelayerFeeRate: externalFeeRate
                 })
             )
         });

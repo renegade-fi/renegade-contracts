@@ -55,6 +55,8 @@ library NativeSettledPublicIntentLib {
     /// @notice Error thrown when the implied price of the obligation does not meet the
     /// minimum authorized price
     error InvalidObligationPrice(uint256 amountOut, uint256 minAmountOut);
+    /// @notice Error thrown when the external relayer fee rate is nonzero for exact/internal settlement
+    error ExternalFeeRateMustBeZero();
 
     /// @notice Validate and execute a public intent and public balance settlement bundle
     /// @dev Note that in contrast to other settlement bundle types, no balance obligation
@@ -85,6 +87,9 @@ library NativeSettledPublicIntentLib {
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
+
+        // For exact/internal settlement, external relayer fee rate must be zero (no external party)
+        if (bundleData.externalRelayerFeeRate.rate.repr != 0) revert ExternalFeeRateMustBeZero();
 
         // Verify that the executor has signed the settlement obligation
         validateObligationAuthorization(bundleData, obligation, state);
@@ -133,7 +138,7 @@ library NativeSettledPublicIntentLib {
         executeInner(bundleData, internalObligation, settlementContext, state);
 
         // Allocate transfers for external party
-        FeeRate memory externalRelayerFeeRate = bundleData.relayerFeeRate;
+        FeeRate memory externalRelayerFeeRate = bundleData.externalRelayerFeeRate;
         receivedAmount = ExternalSettlementLib.allocateExternalPartyTransfers(
             externalPartyRecipient, externalRelayerFeeRate, externalObligation, settlementContext, state
         );
@@ -160,10 +165,17 @@ library NativeSettledPublicIntentLib {
         validateObligationIntentConstraints(amountRemaining, intent, obligation);
 
         // 3. Execute the state updates necessary to settle the bundle
-        FeeRate memory relayerFeeRate = bundleData.relayerFeeRate;
+        FeeRate memory internalRelayerFeeRate = bundleData.internalRelayerFeeRate;
         FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
         executeStateUpdates(
-            intentHash, intent, obligation, bundleData.auth, relayerFeeRate, protocolFeeRate, settlementContext, state
+            intentHash,
+            intent,
+            obligation,
+            bundleData.auth,
+            internalRelayerFeeRate,
+            protocolFeeRate,
+            settlementContext,
+            state
         );
     }
 
@@ -251,8 +263,8 @@ library NativeSettledPublicIntentLib {
     // -------------------------------
 
     /// @notice Validate the authorization of a bounded match result
-    /// @dev We require that the executor signed (relayerFeeRate, boundedMatchResult), which authorizes any obligations
-    /// derived from the match result to be settled at the specified fee rate.
+    /// @dev We require that the executor signed (internalRelayerFeeRate, externalRelayerFeeRate, boundedMatchResult),
+    /// which authorizes any obligations derived from the match result to be settled at the specified fee rates.
     /// @param bundleData The auth bundle data to validate
     /// @param matchResult The bounded match result to validate
     /// @param state The darkpool state containing all storage references
@@ -265,7 +277,7 @@ library NativeSettledPublicIntentLib {
     {
         PublicIntentAuthBundle memory auth = bundleData.auth;
 
-        // Verify that the executor has signed (relayerFeeRate, boundedMatchResult)
+        // Verify that the executor has signed (internalRelayerFeeRate, externalRelayerFeeRate, boundedMatchResult)
         bytes32 executorDigest = bundleData.computeBoundedMatchExecutorDigest(matchResult);
         bool executorValid =
             auth.executorSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.executor, executorDigest, state);
@@ -312,8 +324,8 @@ library NativeSettledPublicIntentLib {
     /// @param intent The intent to update
     /// @param obligation The settlement obligation to update
     /// @param auth The public intent auth bundle containing permit registration data
-    /// @param relayerFeeRate The relayer fee rate to update
-    /// @param protocolFeeRate The protocol fee rate to update
+    /// @param internalRelayerFeeRate The internal relayer fee rate
+    /// @param protocolFeeRate The protocol fee rate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     function executeStateUpdates(
@@ -321,7 +333,7 @@ library NativeSettledPublicIntentLib {
         Intent memory intent,
         SettlementObligation memory obligation,
         PublicIntentAuthBundle memory auth,
-        FeeRate memory relayerFeeRate,
+        FeeRate memory internalRelayerFeeRate,
         FeeRate memory protocolFeeRate,
         SettlementContext memory settlementContext,
         DarkpoolState storage state
@@ -330,7 +342,7 @@ library NativeSettledPublicIntentLib {
     {
         // Compute the fee takes for the match
         (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
-            computeFeeTakes(obligation, relayerFeeRate, protocolFeeRate);
+            computeFeeTakes(obligation, internalRelayerFeeRate, protocolFeeRate);
 
         // Add transfers to settle the obligation
         // Deposit the input token into the darkpool
@@ -364,13 +376,13 @@ library NativeSettledPublicIntentLib {
 
     /// @notice Compute the fee takes for the match
     /// @param obligation The settlement obligation to compute fee takes for
-    /// @param relayerFeeRate The relayer fee rate to compute fee takes for
+    /// @param internalRelayerFeeRate The internal relayer fee rate to compute fee takes for
     /// @param protocolFeeRate The protocol fee rate to compute fee takes for
     /// @return relayerFeeTake The relayer fee take
     /// @return protocolFeeTake The protocol fee take
     function computeFeeTakes(
         SettlementObligation memory obligation,
-        FeeRate memory relayerFeeRate,
+        FeeRate memory internalRelayerFeeRate,
         FeeRate memory protocolFeeRate
     )
         internal
@@ -379,7 +391,7 @@ library NativeSettledPublicIntentLib {
     {
         uint256 receiveAmount = obligation.amountOut;
         address receiveToken = obligation.outputToken;
-        relayerFeeTake = relayerFeeRate.computeFeeTake(receiveToken, receiveAmount);
+        relayerFeeTake = internalRelayerFeeRate.computeFeeTake(receiveToken, receiveAmount);
         protocolFeeTake = protocolFeeRate.computeFeeTake(receiveToken, receiveAmount);
     }
 }
