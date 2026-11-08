@@ -156,6 +156,10 @@ library VerifierCore {
             Transcript memory transcript = TranscriptLib.newTranscript();
             transcript.appendScalars(proofOpeningElements.lastChallenges);
             transcript.appendScalars(extraOpeningElements.lastChallenges);
+            transcript.appendPoints(proofOpeningElements.lhsTerms);
+            transcript.appendPoints(proofOpeningElements.rhsTerms);
+            transcript.appendPoints(extraOpeningElements.lhsTerms);
+            transcript.appendPoints(extraOpeningElements.rhsTerms);
             r = transcript.getChallenge();
         }
 
